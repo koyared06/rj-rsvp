@@ -546,7 +546,8 @@ export default function Home() {
               <a href="#story" className="hover:text-[var(--ink-deep)]">Our Story</a>
               <a href="#details" className="hover:text-[var(--ink-deep)]">Details</a>
               <a href="#rsvp" className="hover:text-[var(--ink-deep)]">RSVP</a>
-              <a href="#travel" className="hover:text-[var(--ink-deep)]">Travel</a>
+              <a href="#registry" className="hover:text-[var(--ink-deep)]">Gift</a>
+              <a href="#gallery" className="hover:text-[var(--ink-deep)]">Gallery</a>
               <a href="#faq" className="hover:text-[var(--ink-deep)]">FAQ</a>
             </nav>
             <ThemeToggle />
@@ -656,41 +657,8 @@ export default function Home() {
       >
         <SectionHeading title="Wedding Details" subtitle="Everything you need for the day." />
         <div className="mt-7 grid gap-6 md:grid-cols-2">
-          <InfoCard
-            title="Ceremony & Reception"
-            lines={[ceremonyTimeLabel, WEDDING_VENUE_NAME, WEDDING_VENUE_ADDRESS]}
-            actionLabel="Open in Maps"
-            actionHref={WEDDING_MAP_URL}
-          />
-          <MapPreviewCard />
-        </div>
-        <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-          <div
-            data-scroll-animate="up"
-            className="rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-5"
-          >
-            <p className="text-xs uppercase tracking-[0.16em] text-[var(--ink-soft)]">Color Motif</p>
-            <p className="mt-2 text-lg text-[var(--ink-deep)]">Pastel Colors</p>
-            <p className="mt-4 text-sm text-[var(--ink-soft)]">
-              Any color is welcome, as long as it is pastel. Please arrive by 3:30 PM so everyone
-              is comfortably seated before the ceremony begins.
-            </p>
-          </div>
-          <div
-            data-scroll-animate="pop"
-            className="overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-3"
-          >
-            <Image
-              src="/images/pastel-color-palette.svg"
-              alt="Pastel color palette inspiration"
-              width={960}
-              height={540}
-              className="h-auto w-full rounded-xl border border-[var(--sand)] bg-[var(--surface-2)]"
-            />
-            <p className="mt-3 text-center text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">
-              Pastel Color Inspiration
-            </p>
-          </div>
+          <VenueMapCard ceremonyTimeLabel={ceremonyTimeLabel} />
+          <ColorMotifCard />
         </div>
       </section>
 
@@ -699,7 +667,10 @@ export default function Home() {
         data-scroll-animate="up"
         className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6"
       >
-        <SectionHeading title="Kindly Respond" subtitle="Please RSVP by [Month Day, Year]." />
+        <SectionHeading
+          title="Kindly Respond"
+          subtitle="The favor of your reply is requested, on or before May 16, 2026."
+        />
         <div
           data-scroll-animate="pop"
           className="mt-7 rounded-2xl border border-[var(--sand)] bg-[var(--surface)] p-5 shadow-sm sm:p-6"
@@ -712,13 +683,22 @@ export default function Home() {
             </p>
           ) : selectedGuest ? (
             <>
-              <p className="text-sm text-[var(--ink-soft)]">Invitation verified for:</p>
+              <p className="text-sm text-[var(--ink-soft)]">You are responding for:</p>
               <p className="mt-1 font-display text-3xl text-[var(--ink-deep)]">{selectedGuest.fullName}</p>
               <p className="mt-2 text-sm text-[var(--ink-soft)]">{maxGuestMessage}</p>
+              <p className="mt-3 rounded-lg border border-[var(--rosewood)]/35 bg-[var(--gold)]/10 px-3 py-2 text-sm text-[var(--ink-deep)]">
+                <span className="mr-1 font-semibold uppercase tracking-[0.08em] text-[var(--rosewood)]">
+                  Please Note:
+                </span>
+                Please understand that, as much as we would love to celebrate with everyone, we have
+                limited venue capacity and resources. Because of this, each invitation is reserved
+                only for the guest name(s) listed and is non-transferable. We truly appreciate your
+                understanding, love, and support.
+              </p>
 
               {selectedGuest.status !== "pending" ? (
                 <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                  Existing RSVP found. Submitting again will replace the previous response.
+                  We found an existing RSVP. Submitting again will update your previous response.
                 </p>
               ) : null}
 
@@ -859,54 +839,36 @@ export default function Home() {
       </section>
 
       <section
-        id="travel"
-        data-scroll-animate="left"
-        className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6"
-      >
-        <SectionHeading title="Travel & Stay" subtitle="For guests traveling in, here are nearby options." />
-        <div className="mt-7 grid gap-5 md:grid-cols-3">
-          <InfoCard
-            title="Recommended Hotels"
-            lines={["[Hotel 1]", "[Hotel 2]", "[Hotel 3]"]}
-          />
-          <InfoCard
-            title="Transport Tips"
-            lines={["[Airport transfers]", "[Parking advice]", "[Local ride apps]"]}
-          />
-          <InfoCard
-            title="Local Highlights"
-            lines={["[Coffee spots]", "[Viewpoints]", "[Late-night snacks]"]}
-          />
-        </div>
-      </section>
-
-      <section
         id="registry"
         data-scroll-animate="right"
         className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6"
       >
-        <SectionHeading title="Registry" subtitle="Your presence is the greatest gift. If you wish, here are our registry options." />
-        <div className="mt-7 grid gap-6 md:grid-cols-2">
-          <PlaceholderImageCard
-            label="Registry Image Placeholder"
-            note="Optional section: add registry logo or gift photo"
-            heightClassName="h-[220px]"
-          />
+        <SectionHeading title="Gift Guide" subtitle="Your presence and prayers are the greatest gift." />
+        <div className="mx-auto mt-7 max-w-2xl">
           <div
             data-scroll-animate="up"
-            className="rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-5"
+            className="mx-auto rounded-2xl border border-[var(--sand)] bg-[var(--cream)]/80 px-5 py-4 sm:px-6"
           >
-            <p className="font-display text-2xl text-[var(--ink-deep)]">Gift Notes</p>
-            <p className="mt-3 text-sm leading-relaxed text-[var(--ink-soft)]">
-              Placeholder text: include your registry links or replace this section with a simple
-              note that your guests&apos; presence is enough.
+            <p className="text-center text-base italic leading-relaxed text-[var(--ink-deep)] sm:text-lg">
+              With all that we have, we&apos;ve been truly blessed, your presence and prayers are all
+              that we request. But if you desire to give nonetheless, monetary gift is one we
+              suggest.
             </p>
-            <button
-              type="button"
-              className="mt-5 rounded-full border border-[var(--gold)] px-5 py-2 text-sm font-semibold text-[var(--ink-deep)]"
-            >
-              Add Registry Link
-            </button>
+          </div>
+          <div
+            data-scroll-animate="up"
+            className="mx-auto mt-5 w-full max-w-sm overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-3"
+          >
+            <Image
+              src="/images/red-gcash.jpg"
+              alt="GCash QR code"
+              width={960}
+              height={960}
+              className="h-auto w-full rounded-xl border border-[var(--sand)] bg-[var(--surface-2)]"
+            />
+            <p className="mt-3 text-center text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+              Scan to Send via GCash
+            </p>
           </div>
         </div>
       </section>
@@ -939,10 +901,16 @@ export default function Home() {
         <SectionHeading title="FAQ" subtitle="A few quick answers before the big day." />
         <div className="mt-7 space-y-3">
           <FaqItem question="What time should I arrive?" answer="Please arrive by 3:30 PM. The ceremony starts at 4:00 PM." />
-          <FaqItem question="Can I bring a plus-one?" answer="[Explain invitation and guest limit policy.]" />
+          <FaqItem
+            question="Can I bring a plus-one?"
+            answer="Due to limited venue capacity and resources, each invitation is reserved only for the guest name(s) listed and is non-transferable. Thank you for understanding."
+          />
           <FaqItem question="Are children invited?" answer="[Clarify if this is adults-only or family-friendly.]" />
           <FaqItem question="Where should I park?" answer="[Add parking details and overflow options.]" />
-          <FaqItem question="What should I wear?" answer="Any color is welcome, as long as it is pastel." />
+          <FaqItem
+            question="What should I wear?"
+            answer="Dress code is Semi-Formal. Any color is welcome, as long as it is pastel."
+          />
         </div>
       </section>
 
@@ -958,7 +926,30 @@ export default function Home() {
           <p className="text-xs uppercase tracking-[0.16em] text-[var(--ink-soft)]">Need Help?</p>
           <p className="mt-2 font-display text-4xl text-[var(--ink-deep)]">Contact</p>
           <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--ink-soft)]">
-            For questions, contact [Name] at [Email] or [Phone].
+            For questions, contact{" "}
+            <a
+              href="https://m.me/DaddyBadekPogi"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-[var(--ink-deep)] underline decoration-[var(--gold)] underline-offset-4"
+            >
+              Koya Red
+            </a>{" "}
+            on Messenger, email{" "}
+            <a
+              href="mailto:koyaredofficial@gmail.com"
+              className="font-semibold text-[var(--ink-deep)] underline decoration-[var(--gold)] underline-offset-4"
+            >
+              koyaredofficial@gmail.com
+            </a>
+            , or call/text{" "}
+            <a
+              href="tel:09510641719"
+              className="font-semibold text-[var(--ink-deep)] underline decoration-[var(--gold)] underline-offset-4"
+            >
+              09510641719
+            </a>
+            .
           </p>
         </div>
       </section>
@@ -1204,53 +1195,16 @@ function TimelineItem({ date, text }: { date: string; text: string }) {
   );
 }
 
-function InfoCard({
-  title,
-  lines,
-  actionLabel,
-  actionHref,
-}: {
-  title: string;
-  lines: string[];
-  actionLabel?: string;
-  actionHref?: string;
-}) {
+function VenueMapCard({ ceremonyTimeLabel }: { ceremonyTimeLabel: string }) {
   return (
     <div data-scroll-animate="left" className="rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-5">
-      <p className="font-display text-3xl text-[var(--ink-deep)]">{title}</p>
+      <p className="font-display text-3xl text-[var(--ink-deep)]">Ceremony & Reception</p>
       <div className="mt-3 space-y-1">
-        {lines.map((line) => (
-          <p key={`${title}-${line}`} className="text-sm text-[var(--ink-soft)]">
-            {line}
-          </p>
-        ))}
+        <p className="text-sm text-[var(--ink-soft)]">{ceremonyTimeLabel}</p>
+        <p className="text-sm text-[var(--ink-soft)]">{WEDDING_VENUE_NAME}</p>
+        <p className="text-sm text-[var(--ink-soft)]">{WEDDING_VENUE_ADDRESS}</p>
       </div>
-      {actionLabel && actionHref ? (
-        <a
-          href={actionHref}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-block rounded-full border border-[var(--gold)] px-4 py-2 text-xs font-semibold text-[var(--ink-deep)]"
-        >
-          {actionLabel}
-        </a>
-      ) : null}
-      {actionLabel && !actionHref ? (
-        <button
-          type="button"
-          className="mt-4 rounded-full border border-[var(--gold)] px-4 py-2 text-xs font-semibold text-[var(--ink-deep)]"
-        >
-          {actionLabel}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function MapPreviewCard() {
-  return (
-    <div data-scroll-animate="left" className="rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-3">
-      <div className="overflow-hidden rounded-xl border border-[var(--sand)] bg-[var(--surface-2)]">
+      <div className="mt-4 overflow-hidden rounded-xl border border-[var(--sand)] bg-[var(--surface-2)]">
         <iframe
           title="Seville Garden map preview"
           src={WEDDING_MAP_EMBED_URL}
@@ -1259,17 +1213,40 @@ function MapPreviewCard() {
           referrerPolicy="no-referrer-when-downgrade"
         />
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">Location Preview</p>
-        <a
-          href={WEDDING_MAP_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-full border border-[var(--gold)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-deep)]"
-        >
-          Open Full Map
-        </a>
+      <a
+        href={WEDDING_MAP_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-4 inline-block rounded-full border border-[var(--gold)] px-4 py-2 text-xs font-semibold text-[var(--ink-deep)]"
+      >
+        Open in Maps
+      </a>
+    </div>
+  );
+}
+
+function ColorMotifCard() {
+  return (
+    <div data-scroll-animate="up" className="rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-5">
+      <p className="text-xs uppercase tracking-[0.16em] text-[var(--ink-soft)]">Color Motif</p>
+      <p className="mt-2 text-lg text-[var(--ink-deep)]">Pastel Colors</p>
+      <p className="mt-1 text-sm font-medium text-[var(--ink-deep)]">Dress Code: Semi-Formal</p>
+      <p className="mt-4 text-sm text-[var(--ink-soft)]">
+        Any color is welcome, as long as it is pastel. Please arrive by 3:30 PM so everyone is
+        comfortably seated before the ceremony begins.
+      </p>
+      <div className="mt-4 overflow-hidden rounded-xl border border-[var(--sand)] bg-[var(--surface-2)] p-3">
+        <Image
+          src="/images/pastel-color-palette.svg"
+          alt="Pastel color palette inspiration"
+          width={960}
+          height={540}
+          className="h-auto w-full rounded-lg border border-[var(--sand)] bg-[var(--surface-2)]"
+        />
       </div>
+      <p className="mt-3 text-center text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+        Pastel Color Inspiration
+      </p>
     </div>
   );
 }
