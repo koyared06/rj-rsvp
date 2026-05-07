@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿# Red & Jess RSVP (Google Sheets Backend)
 
-## Getting Started
+Wedding RSVP website with:
+- Private invite-link RSVP form (`/`)
+- Admin panel (`/admin`)
+- Google Sheets as storage for guests + RSVP submissions
 
-First, run the development server:
+## Quick Start
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Create env file:
+
+```bash
+cp .env.example .env.local
+```
+
+3. Fill `.env.local` values (Google service account + sheet ID + admin token).
+
+4. Run:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open:
+- `http://localhost:3000` (RSVP form, requires invite link params)
+- `http://localhost:3000/admin` (admin panel)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Setup Tutorial
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Full step-by-step Google account connection guide:
 
-## Learn More
+- `docs/google-sheets-setup.md`
 
-To learn more about Next.js, take a look at the following resources:
+## Data Tabs Required in Google Sheet
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`Guests` headers:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+id | inviteCode | inviteToken | fullName | email | maxGuests | status | lastUpdated | notes
+```
 
-## Deploy on Vercel
+`RSVPs` headers:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```text
+timestamp | inviteCode | fullName | email | attendance | guestCount | dietaryRestrictions | songRequest | message | source
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`Settings` headers:
+
+```text
+key | value
+```
+
+## Invite-Only Mode
+
+Guests should open RSVP links in this format:
+
+```text
+/?invite=RJ2026-XXXXXX&token=INVITE_TOKEN
+```
+
+You can generate and share these links/QRs from `/admin`.

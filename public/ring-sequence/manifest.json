@@ -1,0 +1,8 @@
+{
+    "frameCount":  192,
+    "width":  720,
+    "height":  1280,
+    "fps":  24,
+    "pattern":  "/ring-sequence/frame-%04d.jpg",
+    "startIndex":  1
+}
