@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import RingScrollIntro from "@/components/ring-scroll-intro";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type GuestAccessResult = {
   rowNumber: number;
@@ -540,13 +541,16 @@ export default function Home() {
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--ink-soft)]">Together with their families</p>
             <p className="font-display text-xl text-[var(--ink-deep)]">Red & Jess</p>
           </div>
-          <nav className="hidden items-center gap-5 text-sm text-[var(--ink-soft)] md:flex">
-            <a href="#story" className="hover:text-[var(--ink-deep)]">Our Story</a>
-            <a href="#details" className="hover:text-[var(--ink-deep)]">Details</a>
-            <a href="#rsvp" className="hover:text-[var(--ink-deep)]">RSVP</a>
-            <a href="#travel" className="hover:text-[var(--ink-deep)]">Travel</a>
-            <a href="#faq" className="hover:text-[var(--ink-deep)]">FAQ</a>
-          </nav>
+          <div className="flex items-center gap-3">
+            <nav className="hidden items-center gap-5 text-sm text-[var(--ink-soft)] md:flex">
+              <a href="#story" className="hover:text-[var(--ink-deep)]">Our Story</a>
+              <a href="#details" className="hover:text-[var(--ink-deep)]">Details</a>
+              <a href="#rsvp" className="hover:text-[var(--ink-deep)]">RSVP</a>
+              <a href="#travel" className="hover:text-[var(--ink-deep)]">Travel</a>
+              <a href="#faq" className="hover:text-[var(--ink-deep)]">FAQ</a>
+            </nav>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -681,7 +685,7 @@ export default function Home() {
               alt="Pastel color palette inspiration"
               width={960}
               height={540}
-              className="h-auto w-full rounded-xl border border-[var(--sand)] bg-white"
+              className="h-auto w-full rounded-xl border border-[var(--sand)] bg-[var(--surface-2)]"
             />
             <p className="mt-3 text-center text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">
               Pastel Color Inspiration
@@ -698,7 +702,7 @@ export default function Home() {
         <SectionHeading title="Kindly Respond" subtitle="Please RSVP by [Month Day, Year]." />
         <div
           data-scroll-animate="pop"
-          className="mt-7 rounded-2xl border border-[var(--sand)] bg-white/80 p-5 shadow-sm sm:p-6"
+          className="mt-7 rounded-2xl border border-[var(--sand)] bg-[var(--surface)] p-5 shadow-sm sm:p-6"
         >
           {accessLoading ? (
             <p className="text-sm text-[var(--ink-soft)]">Validating invitation link...</p>
@@ -769,7 +773,7 @@ export default function Home() {
                       {Array.from({ length: expectedCompanionCount }, (_, index) => (
                         <div key={`companion-${index + 1}`}>
                           <input
-                            className={`w-full rounded-lg border bg-white px-3 py-2 ${
+                            className={`w-full rounded-lg border bg-[var(--surface-2)] px-3 py-2 ${
                               submitAttempted && missingCompanionIndexes.includes(index)
                                 ? "border-rose-400"
                                 : "border-[var(--sand)]"
@@ -1036,7 +1040,7 @@ export default function Home() {
                 <p className="mt-2 text-xs text-[var(--rosewood)]">{autoplayNotice}</p>
               ) : null}
               {isPlaylistOpen ? (
-                <div className="mt-3 rounded-xl border border-[var(--sand)] bg-white/70 p-2">
+                <div className="mt-3 rounded-xl border border-[var(--sand)] bg-[var(--surface-2)] p-2">
                   <p className="px-2 text-[10px] uppercase tracking-[0.14em] text-[var(--ink-soft)]">
                     More Songs
                   </p>
@@ -1131,7 +1135,7 @@ function PlaceholderImageCard({
       data-scroll-animate="pop"
       className={`rounded-2xl border border-[var(--sand)] bg-[linear-gradient(135deg,rgba(251,245,236,0.78),rgba(233,218,198,0.62))] p-4 ${heightClassName}`}
     >
-      <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-[var(--gold)]/60 bg-white/40 px-4 text-center">
+      <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-[var(--gold)]/60 bg-[color-mix(in_srgb,var(--surface-2)_70%,transparent)] px-4 text-center">
         <p className="font-display text-2xl text-[var(--ink-deep)]">{label}</p>
         <p className="mt-2 text-xs uppercase tracking-[0.13em] text-[var(--ink-soft)]">{note}</p>
       </div>
@@ -1246,7 +1250,7 @@ function InfoCard({
 function MapPreviewCard() {
   return (
     <div data-scroll-animate="left" className="rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-3">
-      <div className="overflow-hidden rounded-xl border border-[var(--sand)] bg-white">
+      <div className="overflow-hidden rounded-xl border border-[var(--sand)] bg-[var(--surface-2)]">
         <iframe
           title="Seville Garden map preview"
           src={WEDDING_MAP_EMBED_URL}
@@ -1281,7 +1285,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 
 function CountdownUnit({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-[var(--sand)] bg-white px-2 py-2 text-center">
+    <div className="rounded-lg border border-[var(--sand)] bg-[var(--surface-2)] px-2 py-2 text-center">
       <p className="text-xl font-semibold tabular-nums text-[var(--ink-deep)]">
         {String(value).padStart(2, "0")}
       </p>

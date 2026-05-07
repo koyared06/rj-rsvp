@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import QRCode from "qrcode";
 import Image from "next/image";
 import JSZip from "jszip";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type GuestRow = {
   rowNumber: number;
@@ -762,19 +763,24 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-      <h1 className="text-3xl font-semibold text-zinc-900 sm:text-4xl">Admin Panel</h1>
-      <p className="mt-2 text-sm text-zinc-600">
-        Google Sheets-backed guest management for Red & Jess RSVP.
-      </p>
-      <p className="mt-1 text-xs text-zinc-500">Dashboard auto-refreshes every 10 seconds.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-semibold text-[var(--ink-deep)] sm:text-4xl">Admin Panel</h1>
+          <p className="mt-2 text-sm text-[var(--ink-soft)]">
+            Google Sheets-backed guest management for Red & Jess RSVP.
+          </p>
+          <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">Dashboard auto-refreshes every 10 seconds.</p>
+        </div>
+        <ThemeToggle />
+      </div>
 
       {!connected ? (
         <form
           onSubmit={onConnect}
-          className="mt-5 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 sm:flex-row"
+          className="mt-5 flex flex-col gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:flex-row"
         >
           <input
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2"
+            className="w-full rounded-lg border border-[var(--border)] px-3 py-2"
             type="password"
             placeholder="Enter ADMIN_TOKEN"
             value={token}
@@ -782,22 +788,22 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
           />
           <button
             type="submit"
-            className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-white disabled:opacity-50 sm:w-auto"
+            className="w-full rounded-lg bg-[var(--ink-deep)] px-4 py-2 text-[var(--background)] disabled:opacity-50 sm:w-auto"
             disabled={loading || !token}
           >
             {loading ? "Loading..." : "Connect"}
           </button>
         </form>
       ) : (
-        <section className="mt-5 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className="mt-5 flex flex-col gap-3 rounded-2xl border border-[var(--success-border)] bg-[var(--success-soft)] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium text-emerald-800">Connected to Google Sheet</p>
-            <p className="text-xs text-emerald-700">Session: Active (tab only)</p>
+            <p className="text-sm font-medium text-[var(--success-text)]">Connected to Google Sheet</p>
+            <p className="text-xs text-[var(--success-text)]">Session: Active (tab only)</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
-              className="w-full rounded-lg border border-emerald-300 px-4 py-2 text-sm text-emerald-900 sm:w-auto"
+              className="w-full rounded-lg border border-[var(--success-border)] px-4 py-2 text-sm text-[var(--success-text)] sm:w-auto"
               onClick={() =>
                 void loadDashboard(token, {
                   skipSuccessFeedback: true,
@@ -809,7 +815,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
             </button>
             <button
               type="button"
-              className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm text-white sm:w-auto"
+              className="w-full rounded-lg bg-[var(--ink-deep)] px-4 py-2 text-sm text-[var(--background)] sm:w-auto"
               onClick={disconnectAdminSession}
             >
               Disconnect
@@ -819,17 +825,17 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
       )}
 
       {feedback ? (
-        <p className="mt-4 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700">
+        <p className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--ink-soft)]">
           {feedback}
         </p>
       ) : null}
 
       {dashboard ? (
         <>
-          <section className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+          <section className="mt-6 rounded-2xl border border-[var(--info-border)] bg-[var(--info-soft)] p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold text-sky-900">Wedding Countdown Settings</h2>
-              <div className="text-xs text-sky-700 sm:text-right">
+              <h2 className="text-lg font-semibold text-[var(--info-text)]">Wedding Countdown Settings</h2>
+              <div className="text-xs text-[var(--info-text)] sm:text-right">
                 <p>{countdownSummary}</p>
                 <p>{countdownVisibilitySummary}</p>
               </div>
@@ -838,10 +844,10 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               onSubmit={onSaveWeddingDate}
               className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,220px)_minmax(0,180px)_minmax(0,1fr)_auto]"
             >
-              <label className="flex w-full flex-col gap-1 text-sm text-sky-900">
+              <label className="flex w-full flex-col gap-1 text-sm text-[var(--info-text)]">
                 <span>Wedding Date</span>
                 <input
-                  className="rounded-lg border border-sky-300 bg-white px-3 py-2"
+                  className="rounded-lg border border-[var(--info-border)] bg-[var(--surface)] px-3 py-2"
                   type="date"
                   value={weddingDateInput}
                   onChange={(event) => {
@@ -850,10 +856,10 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                   }}
                 />
               </label>
-              <label className="flex w-full flex-col gap-1 text-sm text-sky-900">
+              <label className="flex w-full flex-col gap-1 text-sm text-[var(--info-text)]">
                 <span>Wedding Time</span>
                 <input
-                  className="rounded-lg border border-sky-300 bg-white px-3 py-2"
+                  className="rounded-lg border border-[var(--info-border)] bg-[var(--surface)] px-3 py-2"
                   type="time"
                   value={weddingTimeInput}
                   onChange={(event) => {
@@ -862,7 +868,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                   }}
                 />
               </label>
-              <label className="flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm text-sky-900">
+              <label className="flex items-center gap-2 rounded-lg border border-[var(--info-border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--info-text)]">
                 <input
                   className="h-4 w-4"
                   type="checkbox"
@@ -876,13 +882,13 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               </label>
               <button
                 type="submit"
-                className="w-full rounded-lg bg-sky-700 px-4 py-2 text-white disabled:opacity-50 md:col-span-2 lg:col-span-1"
+	                className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-[var(--background)] disabled:opacity-50 md:col-span-2 lg:col-span-1"
                 disabled={settingsSaving || loading}
               >
                 {settingsSaving ? "Saving..." : "Save Countdown Settings"}
               </button>
             </form>
-            <p className="mt-2 text-xs text-sky-700">
+            <p className="mt-2 text-xs text-[var(--info-text)]">
               Use the toggle if you want to hide the countdown card without removing date/time.
             </p>
           </section>
@@ -931,13 +937,13 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
             />
           </section>
 
-          <section className="mt-8 rounded-2xl border border-zinc-200 bg-white p-4">
+          <section className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-xl font-semibold text-zinc-900">Guest Management</h2>
+              <h2 className="text-xl font-semibold text-[var(--ink-deep)]">Guest Management</h2>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
-                  className="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 sm:w-auto"
+                  className="w-full rounded-lg border border-[var(--warn-border)] bg-[var(--warn-soft)] px-4 py-2 text-sm text-[var(--warn-text)] sm:w-auto"
                   onClick={() => void onNormalizeGuestSheet()}
                   disabled={normalizeLoading || loading}
                 >
@@ -945,7 +951,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 </button>
                 <button
                   type="button"
-                  className="w-full rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-700 sm:w-auto"
+                  className="w-full rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--ink-soft)] sm:w-auto"
                   onClick={() => void downloadAllGuestQrs()}
                   disabled={bulkQrLoading || loading || dashboard.guests.length === 0}
                 >
@@ -953,7 +959,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 </button>
                 <button
                   type="button"
-                  className="w-full rounded-lg bg-emerald-700 px-4 py-2 text-white sm:w-auto"
+                  className="w-full rounded-lg bg-[var(--success)] px-4 py-2 text-[var(--background)] sm:w-auto"
                   onClick={() => setIsAddGuestModalOpen(true)}
                 >
                   Add Guest
@@ -961,13 +967,13 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-2 rounded-xl bg-zinc-100 p-1 sm:grid-cols-2">
+            <div className="mt-4 grid grid-cols-1 gap-2 rounded-xl bg-[var(--surface-2)] p-1 sm:grid-cols-2">
               <button
                 type="button"
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   activeTab === "guests"
-                    ? "bg-white text-zinc-900 shadow-sm"
-                    : "text-zinc-600 hover:bg-zinc-200"
+                    ? "bg-[var(--surface)] text-[var(--ink-deep)] shadow-sm"
+                    : "text-[var(--ink-soft)] hover:bg-[color-mix(in_srgb,var(--surface-2)_82%,var(--border)_18%)]"
                 }`}
                 onClick={() => setActiveTab("guests")}
               >
@@ -977,8 +983,8 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 type="button"
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   activeTab === "rsvps"
-                    ? "bg-white text-zinc-900 shadow-sm"
-                    : "text-zinc-600 hover:bg-zinc-200"
+                    ? "bg-[var(--surface)] text-[var(--ink-deep)] shadow-sm"
+                    : "text-[var(--ink-soft)] hover:bg-[color-mix(in_srgb,var(--surface-2)_82%,var(--border)_18%)]"
                 }`}
                 onClick={() => setActiveTab("rsvps")}
               >
@@ -990,7 +996,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               <>
                 <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
                   <input
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className="rounded-lg border border-[var(--border)] px-3 py-2"
                     placeholder="Search guest, invite code, email, notes"
                     value={guestSearch}
                     onChange={(event) => {
@@ -999,7 +1005,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     }}
                   />
                   <select
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className="rounded-lg border border-[var(--border)] px-3 py-2"
                     value={guestStatusFilter}
                     onChange={(event) => {
                       setGuestStatusFilter(event.target.value as GuestStatusFilter);
@@ -1012,7 +1018,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     <option value="declined">Declined</option>
                   </select>
                   <select
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className="rounded-lg border border-[var(--border)] px-3 py-2"
                     value={String(guestPageSize)}
                     onChange={(event) => {
                       setGuestPageSize(Number(event.target.value));
@@ -1023,7 +1029,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     <option value="15">15 per page</option>
                     <option value="25">25 per page</option>
                   </select>
-                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-soft)]">
                     {filteredGuests.length} result(s) - Sort: {guestSortField} ({guestSortDirection})
                   </div>
                 </div>
@@ -1035,16 +1041,16 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     paginatedGuests.map((guest) => (
                       <article
                         key={`${guest.rowNumber}-${guest.id}-card`}
-                        className="rounded-xl border border-zinc-200 bg-white p-3"
+                        className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <p className="font-semibold text-zinc-900">{guest.fullName}</p>
+                          <p className="font-semibold text-[var(--ink-deep)]">{guest.fullName}</p>
                           <StatusBadge status={guest.status} />
                         </div>
-                        <p className="mt-1 text-xs text-zinc-600">Invite: {guest.inviteCode}</p>
-                        <p className="mt-1 text-xs text-zinc-600">Email: {guest.email || "-"}</p>
-                        <p className="mt-1 text-xs text-zinc-600">Max guests: {guest.maxGuests}</p>
-                        <p className="mt-2 text-xs text-zinc-500">Notes: {guest.notes || "-"}</p>
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">Invite: {guest.inviteCode}</p>
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">Email: {guest.email || "-"}</p>
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">Max guests: {guest.maxGuests}</p>
+                        <p className="mt-2 text-xs text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">Notes: {guest.notes || "-"}</p>
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <div className="col-span-2 flex items-center gap-2">
                             <IconActionButton
@@ -1065,7 +1071,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                             />
                           </div>
                         </div>
-                        <p className="mt-2 text-[11px] text-zinc-500">
+                        <p className="mt-2 text-[11px] text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">
                           Updated: {formatTimestamp(guest.lastUpdated)}
                         </p>
                       </article>
@@ -1076,7 +1082,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 <div className="mt-4 hidden overflow-auto md:block">
                   <table className="w-full min-w-[980px] border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-zinc-200 text-left text-zinc-600">
+                      <tr className="border-b border-[var(--border)] text-left text-[var(--ink-soft)]">
                         <th className="p-2">
                           <button type="button" onClick={() => toggleGuestSort("fullName")}>
                             Name {sortMark(guestSortField, guestSortDirection, "fullName")}
@@ -1110,14 +1116,14 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     <tbody>
                       {paginatedGuests.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="p-4 text-center text-zinc-500">
+                          <td colSpan={8} className="p-4 text-center text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">
                             No guests match your filter.
                           </td>
                         </tr>
                       ) : (
                         paginatedGuests.map((guest) => (
-                          <tr key={`${guest.rowNumber}-${guest.id}`} className="border-b border-zinc-100">
-                            <td className="p-2 font-medium text-zinc-900">{guest.fullName}</td>
+                          <tr key={`${guest.rowNumber}-${guest.id}`} className="border-b border-[var(--border)]">
+                            <td className="p-2 font-medium text-[var(--ink-deep)]">{guest.fullName}</td>
                             <td className="p-2">{guest.inviteCode}</td>
                             <td className="p-2">{guest.email || "-"}</td>
                             <td className="p-2">{guest.maxGuests}</td>
@@ -1125,7 +1131,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                               <StatusBadge status={guest.status} />
                             </td>
                             <td className="p-2">{guest.notes || "-"}</td>
-                            <td className="p-2 text-zinc-600">{formatTimestamp(guest.lastUpdated)}</td>
+                            <td className="p-2 text-[var(--ink-soft)]">{formatTimestamp(guest.lastUpdated)}</td>
                             <td className="p-2">
                               <div className="flex items-center gap-2">
                                 <IconActionButton
@@ -1163,7 +1169,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               <>
                 <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
                   <input
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className="rounded-lg border border-[var(--border)] px-3 py-2"
                     placeholder="Search name, code, companions, dietary, song, message"
                     value={rsvpSearch}
                     onChange={(event) => {
@@ -1172,7 +1178,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     }}
                   />
                   <select
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className="rounded-lg border border-[var(--border)] px-3 py-2"
                     value={rsvpStatusFilter}
                     onChange={(event) => {
                       setRsvpStatusFilter(event.target.value as RsvpStatusFilter);
@@ -1184,7 +1190,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     <option value="declined">Declined</option>
                   </select>
                   <select
-                    className="rounded-lg border border-zinc-300 px-3 py-2"
+                    className="rounded-lg border border-[var(--border)] px-3 py-2"
                     value={String(rsvpPageSize)}
                     onChange={(event) => {
                       setRsvpPageSize(Number(event.target.value));
@@ -1195,7 +1201,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     <option value="15">15 per page</option>
                     <option value="25">25 per page</option>
                   </select>
-                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
+                  <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-soft)]">
                     {filteredRsvps.length} result(s) - Sort: {rsvpSortField} ({rsvpSortDirection})
                   </div>
                 </div>
@@ -1207,23 +1213,23 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     paginatedRsvps.map((rsvp) => (
                       <article
                         key={`${rsvp.rowNumber}-${rsvp.timestamp}-card`}
-                        className="rounded-xl border border-zinc-200 bg-white p-3"
+                        className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <p className="font-semibold text-zinc-900">{rsvp.fullName}</p>
+                          <p className="font-semibold text-[var(--ink-deep)]">{rsvp.fullName}</p>
                           <AttendanceBadge attendance={rsvp.attendance} />
                         </div>
-                        <p className="mt-1 text-xs text-zinc-600">Invite: {rsvp.inviteCode}</p>
-                        <p className="mt-1 text-xs text-zinc-600">Guests: {rsvp.guestCount}</p>
-                        <p className="mt-1 text-xs text-zinc-600">
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">Invite: {rsvp.inviteCode}</p>
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">Guests: {rsvp.guestCount}</p>
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">
                           Companions: {rsvp.companionNames || "-"}
                         </p>
-                        <p className="mt-1 text-xs text-zinc-600">
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">
                           Dietary: {rsvp.dietaryRestrictions || "-"}
                         </p>
-                        <p className="mt-1 text-xs text-zinc-600">Song: {rsvp.songRequest || "-"}</p>
-                        <p className="mt-1 text-xs text-zinc-600">Message: {rsvp.message || "-"}</p>
-                        <p className="mt-2 text-[11px] text-zinc-500">
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">Song: {rsvp.songRequest || "-"}</p>
+                        <p className="mt-1 text-xs text-[var(--ink-soft)]">Message: {rsvp.message || "-"}</p>
+                        <p className="mt-2 text-[11px] text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">
                           Submitted: {formatTimestamp(rsvp.timestamp)}
                         </p>
                       </article>
@@ -1234,7 +1240,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 <div className="mt-4 hidden overflow-auto md:block">
                   <table className="w-full min-w-[1060px] border-collapse text-sm">
                     <thead>
-                      <tr className="border-b border-zinc-200 text-left text-zinc-600">
+                      <tr className="border-b border-[var(--border)] text-left text-[var(--ink-soft)]">
                         <th className="p-2">
                           <button type="button" onClick={() => toggleRsvpSort("timestamp")}>
                             Time {sortMark(rsvpSortField, rsvpSortDirection, "timestamp")}
@@ -1264,7 +1270,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     <tbody>
                       {paginatedRsvps.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="p-4 text-center text-zinc-500">
+                          <td colSpan={8} className="p-4 text-center text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">
                             No RSVP submissions match your filter.
                           </td>
                         </tr>
@@ -1272,10 +1278,10 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                         paginatedRsvps.map((rsvp) => (
                           <tr
                             key={`${rsvp.rowNumber}-${rsvp.timestamp}`}
-                            className="border-b border-zinc-100"
+                            className="border-b border-[var(--border)]"
                           >
-                            <td className="p-2 text-zinc-600">{formatTimestamp(rsvp.timestamp)}</td>
-                            <td className="p-2 font-medium text-zinc-900">{rsvp.fullName}</td>
+                            <td className="p-2 text-[var(--ink-soft)]">{formatTimestamp(rsvp.timestamp)}</td>
+                            <td className="p-2 font-medium text-[var(--ink-deep)]">{rsvp.fullName}</td>
                             <td className="p-2">
                               <AttendanceBadge attendance={rsvp.attendance} />
                             </td>
@@ -1308,36 +1314,36 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full rounded-t-2xl bg-white p-4 shadow-xl sm:max-w-xl sm:rounded-2xl sm:p-6">
+          <div className="w-full rounded-t-2xl bg-[var(--surface)] p-4 shadow-xl sm:max-w-xl sm:rounded-2xl sm:p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-zinc-900">Add Guest</h2>
+              <h2 className="text-xl font-semibold text-[var(--ink-deep)]">Add Guest</h2>
               <button
                 type="button"
-                className="rounded-md border border-zinc-300 px-3 py-1 text-sm"
+                className="rounded-md border border-[var(--border)] px-3 py-1 text-sm"
                 onClick={() => setIsAddGuestModalOpen(false)}
               >
                 Close
               </button>
             </div>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-1 text-sm text-[var(--ink-soft)]">
               Invite code will be auto-generated after save.
             </p>
 
             <form onSubmit={onAddGuest} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
-                className="rounded-lg border border-zinc-300 px-3 py-2"
+                className="rounded-lg border border-[var(--border)] px-3 py-2"
                 placeholder="Full Name"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
               />
               <input
-                className="rounded-lg border border-zinc-300 px-3 py-2"
+                className="rounded-lg border border-[var(--border)] px-3 py-2"
                 placeholder="Email (optional)"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
               <input
-                className="rounded-lg border border-zinc-300 px-3 py-2"
+                className="rounded-lg border border-[var(--border)] px-3 py-2"
                 type="number"
                 min={1}
                 max={20}
@@ -1346,14 +1352,14 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 onChange={(event) => setMaxGuests(Number(event.target.value || 1))}
               />
               <input
-                className="sm:col-span-2 rounded-lg border border-zinc-300 px-3 py-2"
+                className="sm:col-span-2 rounded-lg border border-[var(--border)] px-3 py-2"
                 placeholder="Notes (optional)"
                 value={notes}
                 onChange={(event) => setNotes(event.target.value)}
               />
               <button
                 type="submit"
-                className="w-full rounded-lg bg-emerald-700 px-4 py-2 text-white disabled:opacity-50 sm:w-auto"
+                className="w-full rounded-lg bg-[var(--success)] px-4 py-2 text-[var(--background)] disabled:opacity-50 sm:w-auto"
                 disabled={loading}
               >
                 {loading ? "Saving..." : "Save Guest"}
@@ -1369,34 +1375,34 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full rounded-t-2xl bg-white p-4 shadow-xl sm:max-w-xl sm:rounded-2xl sm:p-6">
+          <div className="w-full rounded-t-2xl bg-[var(--surface)] p-4 shadow-xl sm:max-w-xl sm:rounded-2xl sm:p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-zinc-900">Edit Guest</h2>
+              <h2 className="text-xl font-semibold text-[var(--ink-deep)]">Edit Guest</h2>
               <button
                 type="button"
-                className="rounded-md border border-zinc-300 px-3 py-1 text-sm"
+                className="rounded-md border border-[var(--border)] px-3 py-1 text-sm"
                 onClick={() => setIsEditGuestModalOpen(false)}
               >
                 Close
               </button>
             </div>
-            <p className="mt-1 text-sm text-zinc-600">Update guest details and save changes.</p>
+            <p className="mt-1 text-sm text-[var(--ink-soft)]">Update guest details and save changes.</p>
 
             <form onSubmit={onEditGuestSubmit} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <input
-                className="rounded-lg border border-zinc-300 px-3 py-2"
+                className="rounded-lg border border-[var(--border)] px-3 py-2"
                 placeholder="Full Name"
                 value={editFullName}
                 onChange={(event) => setEditFullName(event.target.value)}
               />
               <input
-                className="rounded-lg border border-zinc-300 px-3 py-2"
+                className="rounded-lg border border-[var(--border)] px-3 py-2"
                 placeholder="Email (optional)"
                 value={editEmail}
                 onChange={(event) => setEditEmail(event.target.value)}
               />
               <input
-                className="rounded-lg border border-zinc-300 px-3 py-2"
+                className="rounded-lg border border-[var(--border)] px-3 py-2"
                 type="number"
                 min={1}
                 max={20}
@@ -1405,7 +1411,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 onChange={(event) => setEditMaxGuests(Number(event.target.value || 1))}
               />
               <select
-                className="rounded-lg border border-zinc-300 px-3 py-2"
+                className="rounded-lg border border-[var(--border)] px-3 py-2"
                 value={editStatus}
                 onChange={(event) => setEditStatus(event.target.value as GuestRow["status"])}
               >
@@ -1414,14 +1420,14 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 <option value="declined">declined</option>
               </select>
               <input
-                className="sm:col-span-2 rounded-lg border border-zinc-300 px-3 py-2"
+                className="sm:col-span-2 rounded-lg border border-[var(--border)] px-3 py-2"
                 placeholder="Notes (optional)"
                 value={editNotes}
                 onChange={(event) => setEditNotes(event.target.value)}
               />
               <button
                 type="submit"
-                className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-white disabled:opacity-50 sm:w-auto"
+                className="w-full rounded-lg bg-[var(--ink-deep)] px-4 py-2 text-[var(--background)] disabled:opacity-50 sm:w-auto"
                 disabled={loading || !editRowNumber}
               >
                 {loading ? "Saving..." : "Save Changes"}
@@ -1437,21 +1443,21 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full rounded-t-2xl bg-white p-4 shadow-xl sm:max-w-lg sm:rounded-2xl sm:p-6">
+          <div className="w-full rounded-t-2xl bg-[var(--surface)] p-4 shadow-xl sm:max-w-lg sm:rounded-2xl sm:p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-zinc-900">Guest QR</h2>
+              <h2 className="text-xl font-semibold text-[var(--ink-deep)]">Guest QR</h2>
               <button
                 type="button"
-                className="rounded-md border border-zinc-300 px-3 py-1 text-sm"
+                className="rounded-md border border-[var(--border)] px-3 py-1 text-sm"
                 onClick={() => setIsQrModalOpen(false)}
               >
                 Close
               </button>
             </div>
-            <p className="mt-1 text-sm text-zinc-600">{qrGuest.fullName}</p>
-            <p className="text-xs text-zinc-500">Invite code: {qrGuest.inviteCode}</p>
+            <p className="mt-1 text-sm text-[var(--ink-soft)]">{qrGuest.fullName}</p>
+            <p className="text-xs text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">Invite code: {qrGuest.inviteCode}</p>
 
-            <div className="mt-4 flex justify-center rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+            <div className="mt-4 flex justify-center rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
               {qrImageDataUrl ? (
                 <Image
                   src={qrImageDataUrl}
@@ -1462,21 +1468,21 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                   unoptimized
                 />
               ) : (
-                <p className="text-sm text-zinc-500">Generating QR...</p>
+                <p className="text-sm text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">Generating QR...</p>
               )}
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
                 type="button"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
                 onClick={() => void copyQrLink()}
               >
                 Copy Link
               </button>
               <button
                 type="button"
-                className="rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white"
+                className="rounded-lg bg-[var(--ink-deep)] px-3 py-2 text-sm text-[var(--background)]"
                 onClick={downloadQrImage}
               >
                 Download QR
@@ -1503,11 +1509,11 @@ function StatCard({
   onClick?: () => void;
 }) {
   const tones: Record<string, string> = {
-    slate: "border-zinc-200 bg-zinc-50",
-    amber: "border-amber-200 bg-amber-50",
-    emerald: "border-emerald-200 bg-emerald-50",
-    rose: "border-rose-200 bg-rose-50",
-    sky: "border-sky-200 bg-sky-50",
+    slate: "border-[var(--border)] bg-[var(--surface-2)]",
+    amber: "border-[var(--warn-border)] bg-[var(--warn-soft)]",
+    emerald: "border-[var(--success-border)] bg-[var(--success-soft)]",
+    rose: "border-[var(--error-border)] bg-[var(--error-soft)]",
+    sky: "border-[var(--info-border)] bg-[var(--info-soft)]",
   };
 
   return (
@@ -1515,11 +1521,11 @@ function StatCard({
       type="button"
       onClick={onClick}
       className={`rounded-xl border p-4 text-left transition hover:shadow-sm ${tones[tone]} ${
-        active ? "ring-2 ring-zinc-400" : ""
+        active ? "ring-2 ring-[var(--accent)]" : ""
       }`}
     >
-      <p className="text-sm text-zinc-600">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-zinc-900">{value}</p>
+      <p className="text-sm text-[var(--ink-soft)]">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-[var(--ink-deep)]">{value}</p>
     </button>
   );
 }
@@ -1527,20 +1533,20 @@ function StatCard({
 function StatusBadge({ status }: { status: GuestRow["status"] }) {
   if (status === "attending") {
     return (
-      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
+      <span className="rounded-full bg-[var(--success-soft)] px-2 py-1 text-xs font-medium text-[var(--success-text)]">
         attending
       </span>
     );
   }
   if (status === "declined") {
     return (
-      <span className="rounded-full bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700">
+      <span className="rounded-full bg-[var(--error-soft)] px-2 py-1 text-xs font-medium text-[var(--error-text)]">
         declined
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700">
+    <span className="rounded-full bg-[var(--warn-soft)] px-2 py-1 text-xs font-medium text-[var(--warn-text)]">
       pending
     </span>
   );
@@ -1549,20 +1555,20 @@ function StatusBadge({ status }: { status: GuestRow["status"] }) {
 function AttendanceBadge({ attendance }: { attendance: string }) {
   if (attendance === "attending") {
     return (
-      <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
+      <span className="rounded-full bg-[var(--success-soft)] px-2 py-1 text-xs font-medium text-[var(--success-text)]">
         attending
       </span>
     );
   }
   if (attendance === "declined") {
     return (
-      <span className="rounded-full bg-rose-100 px-2 py-1 text-xs font-medium text-rose-700">
+      <span className="rounded-full bg-[var(--error-soft)] px-2 py-1 text-xs font-medium text-[var(--error-text)]">
         declined
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
+    <span className="rounded-full bg-[var(--surface-2)] px-2 py-1 text-xs font-medium text-[var(--ink-soft)]">
       {attendance}
     </span>
   );
@@ -1579,13 +1585,13 @@ function Pagination({
 }) {
   return (
     <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">
         Page {currentPage} of {totalPages}
       </p>
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="rounded border border-zinc-300 px-3 py-1 text-xs disabled:opacity-40"
+          className="rounded border border-[var(--border)] px-3 py-1 text-xs disabled:opacity-40"
           disabled={currentPage <= 1}
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         >
@@ -1593,7 +1599,7 @@ function Pagination({
         </button>
         <button
           type="button"
-          className="rounded border border-zinc-300 px-3 py-1 text-xs disabled:opacity-40"
+          className="rounded border border-[var(--border)] px-3 py-1 text-xs disabled:opacity-40"
           disabled={currentPage >= totalPages}
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         >
@@ -1606,7 +1612,7 @@ function Pagination({
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm text-zinc-500">
+    <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-2)] p-4 text-sm text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">
       {label}
     </div>
   );
@@ -1631,8 +1637,8 @@ function IconActionButton({
       onClick={onClick}
       className={`rounded-lg border p-2 transition ${
         tone === "danger"
-          ? "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100"
-          : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
+          ? "border-[var(--error-border)] bg-[var(--error-soft)] text-[var(--error-text)] hover:bg-[var(--error-soft)]"
+          : "border-[var(--border)] bg-[var(--surface)] text-[var(--ink-soft)] hover:bg-[var(--surface-2)]"
       }`}
     >
       {icon}
@@ -1683,4 +1689,5 @@ function formatTimestamp(value: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
 }
+
 

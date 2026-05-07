@@ -24,6 +24,21 @@ export const metadata: Metadata = {
   description: "Cinematic RSVP website powered by Google Sheets",
 };
 
+const themeBootstrapScript = `
+(() => {
+  try {
+    const root = document.documentElement;
+    const storedTheme = window.localStorage.getItem("rj_theme_mode");
+    if (storedTheme === "light" || storedTheme === "dark") {
+      root.dataset.theme = storedTheme;
+      root.classList.toggle("theme-dark", storedTheme === "dark");
+      root.classList.toggle("theme-light", storedTheme === "light");
+      root.style.colorScheme = storedTheme;
+    }
+  } catch {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,6 +51,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         {children}
         <ToasterProvider />
       </body>

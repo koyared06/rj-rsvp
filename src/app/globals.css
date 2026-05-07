@@ -10,6 +10,26 @@
   --sand: #ccaea4;
   --gold: #b98a57;
   --rosewood: #76453d;
+  --surface: #e8d9d3;
+  --surface-2: #f2e5df;
+  --accent: #b98a57;
+  --accent-hover: #a17a4d;
+  --success: #2f9e65;
+  --error: #b24a4a;
+  --border: #ccaea4;
+  --success-soft: #e8f7ef;
+  --success-border: #84d4ad;
+  --success-text: #1f6f48;
+  --error-soft: #fdeeee;
+  --error-border: #e8a2a2;
+  --error-text: #8f3434;
+  --warn-soft: #fff4df;
+  --warn-border: #edc57a;
+  --warn-text: #835a16;
+  --info-soft: #e7f2ff;
+  --info-border: #8eb9ed;
+  --info-text: #255a96;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -20,17 +40,75 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --ring-bg: #5f4641;
-    --background: #3f2f2b;
-    --foreground: #f2e9e1;
-    --ink-deep: #f2e9e1;
-    --ink-soft: #ddcbc2;
-    --cream: #4f3b36;
-    --sand: #6b514a;
-    --gold: #d2aa74;
-    --rosewood: #c68a7d;
+  :root:not([data-theme]):not(.theme-dark):not(.theme-light) {
+    --ring-bg: #171a21;
+    --background: #0f1115;
+    --foreground: #e8ecf3;
+    --ink-deep: #e8ecf3;
+    --ink-soft: #a9b1c0;
+    --cream: #171a21;
+    --sand: #2a3140;
+    --gold: #4f8cff;
+    --rosewood: #ff6b6b;
+    --surface: #171a21;
+    --surface-2: #1e222b;
+    --accent: #4f8cff;
+    --accent-hover: #3e79e6;
+    --success: #3ecf8e;
+    --error: #ff6b6b;
+    --border: #2a3140;
+    --success-soft: #13291f;
+    --success-border: #1f5238;
+    --success-text: #8be0b5;
+    --error-soft: #311d22;
+    --error-border: #6b343f;
+    --error-text: #ffc4cc;
+    --warn-soft: #2d2415;
+    --warn-border: #6f5124;
+    --warn-text: #f2cf93;
+    --info-soft: #152332;
+    --info-border: #2c4e73;
+    --info-text: #aad2ff;
+    color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"],
+:root.theme-dark {
+  --ring-bg: #171a21;
+  --background: #0f1115;
+  --foreground: #e8ecf3;
+  --ink-deep: #e8ecf3;
+  --ink-soft: #a9b1c0;
+  --cream: #171a21;
+  --sand: #2a3140;
+  --gold: #4f8cff;
+  --rosewood: #ff6b6b;
+  --surface: #171a21;
+  --surface-2: #1e222b;
+  --accent: #4f8cff;
+  --accent-hover: #3e79e6;
+  --success: #3ecf8e;
+  --error: #ff6b6b;
+  --border: #2a3140;
+  --success-soft: #13291f;
+  --success-border: #1f5238;
+  --success-text: #8be0b5;
+  --error-soft: #311d22;
+  --error-border: #6b343f;
+  --error-text: #ffc4cc;
+  --warn-soft: #2d2415;
+  --warn-border: #6f5124;
+  --warn-text: #f2cf93;
+  --info-soft: #152332;
+  --info-border: #2c4e73;
+  --info-text: #aad2ff;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"],
+:root.theme-light {
+  color-scheme: light;
 }
 
 body {
