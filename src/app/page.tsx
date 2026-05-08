@@ -1,6 +1,14 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createPortal } from "react-dom";
@@ -141,6 +149,7 @@ const GALLERY_FEATURED_PHOTOS: readonly GalleryPhoto[] = [
 export default function Home() {
   const router = useRouter();
   const accessCheckedRef = useRef(false);
+  const hasAutoStartedPlayerRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [inviteCode, setInviteCode] = useState("");
   const [inviteToken, setInviteToken] = useState("");
@@ -179,13 +188,42 @@ export default function Home() {
   const [isGcashModalOpen, setIsGcashModalOpen] = useState(false);
   const [selectedGcashRecipient, setSelectedGcashRecipient] = useState<"groom" | "bride">("groom");
   const [activeGallerySlideIndex, setActiveGallerySlideIndex] = useState(0);
-  const canUseDom = typeof window !== "undefined";
+  const [activeFeaturedPhotoIndex, setActiveFeaturedPhotoIndex] = useState<number | null>(null);
+  const isClientMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
-    if (!isGcashModalOpen) return;
+    const isFeaturedModalOpen = activeFeaturedPhotoIndex !== null;
+    if (!isGcashModalOpen && !isFeaturedModalOpen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsGcashModalOpen(false);
+      if (event.key === "Escape") {
+        if (isFeaturedModalOpen) {
+          setActiveFeaturedPhotoIndex(null);
+          return;
+        }
+        setIsGcashModalOpen(false);
+        return;
+      }
+
+      if (!isFeaturedModalOpen) return;
+
+      if (event.key === "ArrowLeft") {
+        setActiveFeaturedPhotoIndex((current) => {
+          if (current === null) return current;
+          return (current - 1 + GALLERY_FEATURED_PHOTOS.length) % GALLERY_FEATURED_PHOTOS.length;
+        });
+      }
+
+      if (event.key === "ArrowRight") {
+        setActiveFeaturedPhotoIndex((current) => {
+          if (current === null) return current;
+          return (current + 1) % GALLERY_FEATURED_PHOTOS.length;
+        });
+      }
     };
 
     const previousOverflow = document.body.style.overflow;
@@ -196,7 +234,7 @@ export default function Home() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [isGcashModalOpen]);
+  }, [activeFeaturedPhotoIndex, isGcashModalOpen]);
 
   const countdown = useMemo(
     () => getCountdownParts(settings.weddingDate, settings.weddingTime, nowMs),
@@ -205,6 +243,10 @@ export default function Home() {
   const ceremonyTimeLabel = useMemo(
     () => formatWeddingTime(settings.weddingTime),
     [settings.weddingTime],
+  );
+  const rsvpDeadlineLabel = useMemo(
+    () => getRsvpDeadlineLabel(settings.weddingDate || DEFAULT_WEDDING_DATE, 7),
+    [settings.weddingDate],
   );
 
   const countdownMessage = useMemo(() => {
@@ -251,6 +293,11 @@ export default function Home() {
   );
   const hasMoreSongs = musicTracks.length > 1;
   const totalGallerySlides = GALLERY_CAROUSEL_PHOTOS.length;
+  const totalFeaturedPhotos = GALLERY_FEATURED_PHOTOS.length;
+  const activeFeaturedPhoto =
+    activeFeaturedPhotoIndex !== null
+      ? GALLERY_FEATURED_PHOTOS[activeFeaturedPhotoIndex] ?? null
+      : null;
 
   const showPreviousGallerySlide = useCallback(() => {
     setActiveGallerySlideIndex((current) =>
@@ -440,6 +487,25 @@ export default function Home() {
   }, [loadMusicPlaylist]);
 
   useEffect(() => {
+    if (hasAutoStartedPlayerRef.current) return;
+    if (musicLoading || musicTracks.length === 0) return;
+
+    const featuredTrackIndex = musicTracks.findIndex((track) => track.isFeatured);
+    const initialTrackIndex = featuredTrackIndex >= 0 ? featuredTrackIndex : 0;
+
+    hasAutoStartedPlayerRef.current = true;
+    const rafId = window.requestAnimationFrame(() => {
+      setCurrentTrackIndex(initialTrackIndex);
+      setIsPlayerVisible(true);
+      setIsPlayerExpanded(false);
+      setIsPlaylistOpen(false);
+      setShouldAutoplay(true);
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [musicLoading, musicTracks]);
+
+  useEffect(() => {
     if (!shouldAutoplay || !currentTrack) return;
 
     const rafId = window.requestAnimationFrame(() => {
@@ -496,10 +562,12 @@ export default function Home() {
 
   function handlePlayOurSong() {
     if (musicTracks.length === 0) return;
+    const featuredTrackIndex = musicTracks.findIndex((track) => track.isFeatured);
+    const initialTrackIndex = featuredTrackIndex >= 0 ? featuredTrackIndex : 0;
     setIsPlayerVisible(true);
     setIsPlayerExpanded(true);
     setIsPlaylistOpen(false);
-    setCurrentTrackIndex(0);
+    setCurrentTrackIndex(initialTrackIndex);
     setShouldAutoplay(true);
   }
 
@@ -622,7 +690,10 @@ export default function Home() {
 
   return (
     <main className="relative text-[var(--foreground)]">
-      <RingScrollIntro weddingDateLabel={introWeddingDateLabel} />
+      <RingScrollIntro
+        weddingDateLabel={introWeddingDateLabel}
+        weddingTimeLabel={ceremonyTimeLabel}
+      />
 
       <header
         id="top-navbar"
@@ -669,8 +740,8 @@ export default function Home() {
             {WEDDING_HASHTAG}
           </p>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-[var(--ink-soft)] sm:text-lg">
-            Invite you to celebrate their wedding day. Kindly respond through your personal invite
-            link and explore the details below.
+            With joyful hearts, we invite you to celebrate our wedding day. Kindly respond through
+            your personal invite link and explore the details below.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <a
@@ -717,7 +788,9 @@ export default function Home() {
                 <CountdownUnit label="Minutes" value={countdown.minutes} />
                 <CountdownUnit label="Seconds" value={countdown.seconds} />
               </div>
-              <p className="mt-3 text-sm font-medium text-[var(--ink-soft)]">{countdownMessage}</p>
+              <p suppressHydrationWarning className="mt-3 text-sm font-medium text-[var(--ink-soft)]">
+                {countdownMessage}
+              </p>
             </div>
           ) : null}
         </div>
@@ -766,7 +839,7 @@ export default function Home() {
       >
         <SectionHeading
           title="Kindly Respond"
-          subtitle="The favor of your reply is requested, on or before May 16, 2026."
+          subtitle={`The favor of your reply is requested on or before ${rsvpDeadlineLabel}.`}
         />
         <p className="mt-3 text-sm text-[var(--ink-soft)]">
           Share your snaps with our hashtag:{" "}
@@ -981,7 +1054,7 @@ export default function Home() {
         </div>
       </section>
 
-      {canUseDom
+      {isClientMounted
         ? createPortal(
             <div
               role="dialog"
@@ -1101,13 +1174,14 @@ export default function Home() {
         </div>
         <p className="mt-8 text-xs uppercase tracking-[0.16em] text-[var(--ink-soft)]">Best Moments</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {GALLERY_FEATURED_PHOTOS.map((photo) => (
+          {GALLERY_FEATURED_PHOTOS.map((photo, index) => (
             <GalleryPhotoCard
               key={photo.src}
               src={photo.src}
               alt={photo.alt}
               caption={photo.caption}
               objectPosition={photo.objectPosition}
+              onClick={() => setActiveFeaturedPhotoIndex(index)}
             />
           ))}
         </div>
@@ -1120,6 +1194,78 @@ export default function Home() {
           </a>
         </div>
       </section>
+
+      {isClientMounted && activeFeaturedPhoto
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 px-4 py-6 backdrop-blur-md"
+              onClick={() => setActiveFeaturedPhotoIndex(null)}
+            >
+              <div className="group relative" onClick={(event) => event.stopPropagation()}>
+                <div className="relative overflow-hidden rounded-2xl border border-white/35 bg-black/30 shadow-2xl">
+                  <Image
+                    src={activeFeaturedPhoto.src}
+                    alt={activeFeaturedPhoto.alt}
+                    width={1600}
+                    height={1067}
+                    sizes="92vw"
+                    priority
+                    className="block max-h-[80vh] w-auto max-w-[92vw] object-contain"
+                  />
+                  <div className="absolute left-3 top-3 max-w-[78%] sm:left-4 sm:top-4">
+                    <p className="font-display text-lg italic leading-tight text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.75)] sm:text-xl">
+                      {activeFeaturedPhoto.caption}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveFeaturedPhotoIndex(null)}
+                  className="absolute right-3 top-3 rounded-full border border-white/30 bg-black/35 p-2 text-[var(--cream)] backdrop-blur-md transition hover:bg-black/55 sm:right-4 sm:top-4"
+                  aria-label="Close photo preview"
+                >
+                  <span aria-hidden="true" className="block text-base leading-none">
+                    ×
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveFeaturedPhotoIndex((current) => {
+                      if (current === null) return current;
+                      return (current - 1 + totalFeaturedPhotos) % totalFeaturedPhotos;
+                    })
+                  }
+                  className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/30 bg-black/30 p-2 text-[var(--cream)] opacity-0 backdrop-blur-md transition duration-200 hover:bg-black/50 group-hover:opacity-60 focus-visible:opacity-100 sm:left-4"
+                  aria-label="Show previous photo"
+                >
+                  <span aria-hidden="true" className="block text-2xl leading-none">
+                    &#8249;
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveFeaturedPhotoIndex((current) => {
+                      if (current === null) return current;
+                      return (current + 1) % totalFeaturedPhotos;
+                    })
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/30 bg-black/30 p-2 text-[var(--cream)] opacity-0 backdrop-blur-md transition duration-200 hover:bg-black/50 group-hover:opacity-60 focus-visible:opacity-100 sm:right-4"
+                  aria-label="Show next photo"
+                >
+                  <span aria-hidden="true" className="block text-2xl leading-none">
+                    &#8250;
+                  </span>
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <section
         id="faq"
@@ -1334,8 +1480,7 @@ export default function Home() {
 function SectionHeading({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div data-scroll-animate="up">
-      <p className="text-xs uppercase tracking-[0.18em] text-[var(--ink-soft)]">Section</p>
-      <h2 className="mt-2 font-display text-4xl text-[var(--ink-deep)] sm:text-5xl">{title}</h2>
+      <h2 className="font-display text-4xl text-[var(--ink-deep)] sm:text-5xl">{title}</h2>
       <p className="mt-2 max-w-2xl text-sm text-[var(--ink-soft)] sm:text-base">{subtitle}</p>
     </div>
   );
@@ -1442,16 +1587,21 @@ function GalleryPhotoCard({
   alt,
   caption,
   objectPosition,
+  onClick,
 }: {
   src: string;
   alt: string;
   caption: string;
   objectPosition?: string;
+  onClick: () => void;
 }) {
   return (
-    <figure
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Preview photo: ${caption}`}
       data-scroll-animate="pop"
-      className="group relative h-[220px] overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)] sm:h-[240px]"
+      className="group relative h-[220px] overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)] text-left sm:h-[240px]"
     >
       <Image
         src={src}
@@ -1461,10 +1611,10 @@ function GalleryPhotoCard({
         className="object-cover object-center transition duration-500 group-hover:scale-[1.03]"
         style={{ objectPosition: objectPosition ?? "50% 25%" }}
       />
-      <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-4 pb-4 pt-8">
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-4 pb-4 pt-8">
         <p className="text-xs uppercase tracking-[0.15em] text-[var(--cream)]/90">{caption}</p>
-      </figcaption>
-    </figure>
+      </div>
+    </button>
   );
 }
 
@@ -1473,7 +1623,7 @@ function HeroWeddingPhotoCard() {
     <div className="relative mx-auto h-[560px] w-full max-w-[440px] sm:h-[640px] sm:max-w-[500px]">
       <div className="relative h-full overflow-hidden">
         <Image
-          src="/images/floral-border/tinginan pink roses border.png"
+          src="/images/floral-border/tinginan-pink-roses-border.png"
           alt="Red and Jess wedding portrait"
           fill
           priority
@@ -1562,7 +1712,7 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
 function CountdownUnit({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-[var(--sand)] bg-[var(--surface-2)] px-2 py-2 text-center">
-      <p className="text-xl font-semibold tabular-nums text-[var(--ink-deep)]">
+      <p suppressHydrationWarning className="text-xl font-semibold tabular-nums text-[var(--ink-deep)]">
         {String(value).padStart(2, "0")}
       </p>
       <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-soft)]">{label}</p>
@@ -1590,6 +1740,25 @@ function formatWeddingDate(value: string) {
     year: "numeric",
     timeZone: "UTC",
   });
+}
+
+function getRsvpDeadlineLabel(weddingDate: string, daysBefore: number) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weddingDate)) return "one week before the wedding day";
+  const [yearRaw, monthRaw, dayRaw] = weddingDate.split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return "one week before the wedding day";
+  }
+
+  const deadlineUtc = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(deadlineUtc.getTime())) return "one week before the wedding day";
+
+  deadlineUtc.setUTCDate(deadlineUtc.getUTCDate() - daysBefore);
+  const isoDeadline = deadlineUtc.toISOString().slice(0, 10);
+  return formatWeddingDate(isoDeadline);
 }
 
 function formatWeddingTime(value: string) {
