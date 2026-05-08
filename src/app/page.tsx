@@ -975,7 +975,7 @@ export default function Home() {
                     src={
                       selectedGcashRecipient === "groom"
                         ? "/images/red-gcash.jpg"
-                        : "/images/jess-gcash.jfif"
+                        : "/images/jess-gcash.jpg"
                     }
                     alt={
                       selectedGcashRecipient === "groom"
@@ -1500,3 +1500,4 @@ function parseWeddingTime(value: string): { hours: number; minutes: number } | n
     minutes: Number(matched[2]),
   };
 }
+
