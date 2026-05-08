@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import RingScrollIntro from "@/components/ring-scroll-intro";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -136,6 +137,26 @@ export default function Home() {
   const [shouldAutoplay, setShouldAutoplay] = useState(false);
   const [autoplayNotice, setAutoplayNotice] = useState("");
   const [isNavbarVisible, setIsNavbarVisible] = useState(false);
+  const [isGcashModalOpen, setIsGcashModalOpen] = useState(false);
+  const [selectedGcashRecipient, setSelectedGcashRecipient] = useState<"groom" | "bride">("groom");
+  const canUseDom = typeof window !== "undefined";
+
+  useEffect(() => {
+    if (!isGcashModalOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsGcashModalOpen(false);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isGcashModalOpen]);
 
   const countdown = useMemo(
     () => getCountdownParts(settings.weddingDate, settings.weddingTime, nowMs),
@@ -857,21 +878,131 @@ export default function Home() {
           </div>
           <div
             data-scroll-animate="up"
-            className="mx-auto mt-5 w-full max-w-sm overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-3"
+            className="mt-5 flex justify-center"
           >
-            <Image
-              src="/images/red-gcash.jpg"
-              alt="GCash QR code"
-              width={960}
-              height={960}
-              className="h-auto w-full rounded-xl border border-[var(--sand)] bg-[var(--surface-2)]"
-            />
-            <p className="mt-3 text-center text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">
-              Scan to Send via GCash
-            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedGcashRecipient("groom");
+                setIsGcashModalOpen(true);
+              }}
+              aria-haspopup="dialog"
+              aria-expanded={isGcashModalOpen}
+              aria-controls="gcash-qr-panel"
+              className="rounded-xl border border-[var(--sand)] bg-[var(--cream)] px-5 py-2.5 text-sm font-semibold text-[var(--ink-deep)] transition hover:bg-[var(--surface-2)]"
+            >
+              Show GCash QR
+            </button>
           </div>
+          <div
+            id="gcash-qr-panel"
+            aria-hidden={!isGcashModalOpen}
+          />
         </div>
       </section>
+
+      {canUseDom
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="GCash QR code"
+              className={`fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto p-4 pt-6 sm:items-center sm:pt-4 transition-opacity duration-300 ease-out ${
+                isGcashModalOpen
+                  ? "opacity-100 pointer-events-auto"
+                  : "opacity-0 pointer-events-none"
+              }`}
+              aria-hidden={!isGcashModalOpen}
+              onClick={() => setIsGcashModalOpen(false)}
+            >
+              <div className="absolute inset-0 bg-transparent backdrop-blur-sm" />
+              <div
+                className={`relative my-2 min-h-0 w-full max-w-sm overflow-visible rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-3 shadow-xl transition duration-300 ease-out sm:my-0 sm:max-w-[22rem] ${
+                  isGcashModalOpen ? "translate-y-0 scale-100" : "translate-y-3 scale-95"
+                }`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsGcashModalOpen(false)}
+                  aria-label="Close GCash QR modal"
+                  className="absolute -right-2 -top-2 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--sand)] bg-[var(--cream)] text-[var(--ink-deep)] shadow-md transition hover:bg-[var(--surface-2)] sm:-right-3 sm:-top-3"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 20 20"
+                    className="h-4 w-4"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M5 5L15 15M15 5L5 15"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+                <div className="mx-auto mb-3 grid w-full max-w-xs grid-cols-2 gap-2 rounded-xl border border-[var(--sand)] bg-[var(--surface-2)] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGcashRecipient("groom")}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                      selectedGcashRecipient === "groom"
+                        ? "bg-[var(--cream)] text-[var(--ink-deep)] shadow-sm"
+                        : "text-[var(--ink-soft)] hover:text-[var(--ink-deep)]"
+                    }`}
+                  >
+                    Groom
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGcashRecipient("bride")}
+                    className={`rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] transition ${
+                      selectedGcashRecipient === "bride"
+                        ? "bg-[var(--cream)] text-[var(--ink-deep)] shadow-sm"
+                        : "text-[var(--ink-soft)] hover:text-[var(--ink-deep)]"
+                    }`}
+                  >
+                    Bride
+                  </button>
+                </div>
+                <div className="mx-auto w-full max-w-[19rem] overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-2">
+                  <p className="pb-2 text-center text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ink-soft)]">
+                    {selectedGcashRecipient === "groom" ? "Groom GCash" : "Bride GCash"}
+                  </p>
+                  <Image
+                    src={
+                      selectedGcashRecipient === "groom"
+                        ? "/images/red-gcash.jpg"
+                        : "/images/jess-gcash.jfif"
+                    }
+                    alt={
+                      selectedGcashRecipient === "groom"
+                        ? "GCash QR code for groom"
+                        : "GCash QR code for bride"
+                    }
+                    width={960}
+                    height={960}
+                    className="h-auto w-full rounded-xl border border-[var(--sand)] bg-[var(--surface-2)]"
+                  />
+                  <p className="mt-2 text-center text-sm font-semibold tracking-[0.04em] text-[#005DE3]">
+                    {selectedGcashRecipient === "groom" ? "RE*****O B." : "JE***A MA**E E."}
+                  </p>
+                </div>
+                <div className="mt-3">
+                  <p className="text-center text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+                    Scan to Send via GCash
+                  </p>
+                </div>
+                <p className="mt-2 text-center text-[11px] text-[var(--ink-soft)]">
+                  Tap outside the card or press Esc to close.
+                </p>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <section
         id="gallery"
