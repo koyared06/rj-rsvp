@@ -10,11 +10,17 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import RingScrollIntro from "@/components/ring-scroll-intro";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  MUSIC_PLAYER_REQUEST_EVENT,
+  MUSIC_PLAYER_STATUS_EVENT,
+  type MusicPlayerStatusDetail,
+} from "@/lib/music-player-events";
 
 type GuestAccessResult = {
   rowNumber: number;
@@ -41,14 +47,6 @@ type CountdownParts = {
   minutes: number;
   seconds: number;
   isComplete: boolean;
-};
-
-type MusicTrack = {
-  id: string;
-  title: string;
-  fileName: string;
-  streamUrl: string;
-  isFeatured: boolean;
 };
 
 type GalleryPhoto = {
@@ -149,8 +147,6 @@ const GALLERY_FEATURED_PHOTOS: readonly GalleryPhoto[] = [
 export default function Home() {
   const router = useRouter();
   const accessCheckedRef = useRef(false);
-  const hasAutoStartedPlayerRef = useRef(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [inviteCode, setInviteCode] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [accessLoading, setAccessLoading] = useState(true);
@@ -174,16 +170,11 @@ export default function Home() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const [musicTracks, setMusicTracks] = useState<MusicTrack[]>([]);
-  const [musicLoading, setMusicLoading] = useState(true);
-  const [musicError, setMusicError] = useState("");
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [isPlayerVisible, setIsPlayerVisible] = useState(false);
-  const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
-  const [isPlaylistOpen, setIsPlaylistOpen] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [shouldAutoplay, setShouldAutoplay] = useState(false);
-  const [autoplayNotice, setAutoplayNotice] = useState("");
+  const [musicPlayerStatus, setMusicPlayerStatus] = useState<MusicPlayerStatusDetail>({
+    loading: true,
+    hasTracks: false,
+    error: "",
+  });
   const [isNavbarVisible, setIsNavbarVisible] = useState(false);
   const [isGcashModalOpen, setIsGcashModalOpen] = useState(false);
   const [selectedGcashRecipient, setSelectedGcashRecipient] = useState<"groom" | "bride">("groom");
@@ -287,11 +278,6 @@ export default function Home() {
   );
 
   const hasCompanionValidationError = missingCompanionIndexes.length > 0;
-  const currentTrack = useMemo(
-    () => musicTracks[currentTrackIndex] ?? null,
-    [musicTracks, currentTrackIndex],
-  );
-  const hasMoreSongs = musicTracks.length > 1;
   const totalGallerySlides = GALLERY_CAROUSEL_PHOTOS.length;
   const totalFeaturedPhotos = GALLERY_FEATURED_PHOTOS.length;
   const activeFeaturedPhoto =
@@ -322,49 +308,6 @@ export default function Home() {
 
     return () => window.clearInterval(interval);
   }, [totalGallerySlides]);
-
-  const loadMusicPlaylist = useCallback(async () => {
-    setMusicLoading(true);
-    setMusicError("");
-
-    try {
-      const response = await fetch("/api/music/playlist");
-      const payload = await response.json();
-
-      if (!response.ok) {
-        const details = payload.details ? ` (${payload.details})` : "";
-        const msg = `${payload.error ?? "Unable to load music playlist."}${details}`;
-        setMusicError(msg);
-        return;
-      }
-
-      const tracks = Array.isArray(payload.tracks)
-        ? (payload.tracks as MusicTrack[])
-        : [];
-      setMusicTracks(tracks);
-      if (tracks.length === 0) {
-        setMusicError("No music files found in BALANAY FAM/music.");
-      }
-    } catch {
-      setMusicError("Network error while loading music playlist.");
-    } finally {
-      setMusicLoading(false);
-    }
-  }, []);
-
-  const tryPlayCurrentTrack = useCallback(async () => {
-    const audio = audioRef.current;
-    if (!audio || !currentTrack) return;
-
-    try {
-      await audio.play();
-      setIsPlaying(true);
-      setAutoplayNotice("");
-    } catch {
-      setIsPlaying(false);
-      setAutoplayNotice("Tap play on the mini player to start audio.");
-    }
-  }, [currentTrack]);
 
   const validateAccess = useCallback(async (invite: string, token: string) => {
     setAccessLoading(true);
@@ -479,42 +422,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const rafId = window.requestAnimationFrame(() => {
-      void loadMusicPlaylist();
-    });
+    const handleMusicPlayerStatus = (event: Event) => {
+      const customEvent = event as CustomEvent<MusicPlayerStatusDetail>;
+      if (!customEvent.detail) return;
+      setMusicPlayerStatus(customEvent.detail);
+    };
 
-    return () => window.cancelAnimationFrame(rafId);
-  }, [loadMusicPlaylist]);
-
-  useEffect(() => {
-    if (hasAutoStartedPlayerRef.current) return;
-    if (musicLoading || musicTracks.length === 0) return;
-
-    const featuredTrackIndex = musicTracks.findIndex((track) => track.isFeatured);
-    const initialTrackIndex = featuredTrackIndex >= 0 ? featuredTrackIndex : 0;
-
-    hasAutoStartedPlayerRef.current = true;
-    const rafId = window.requestAnimationFrame(() => {
-      setCurrentTrackIndex(initialTrackIndex);
-      setIsPlayerVisible(true);
-      setIsPlayerExpanded(false);
-      setIsPlaylistOpen(false);
-      setShouldAutoplay(true);
-    });
-
-    return () => window.cancelAnimationFrame(rafId);
-  }, [musicLoading, musicTracks]);
-
-  useEffect(() => {
-    if (!shouldAutoplay || !currentTrack) return;
-
-    const rafId = window.requestAnimationFrame(() => {
-      void tryPlayCurrentTrack();
-      setShouldAutoplay(false);
-    });
-
-    return () => window.cancelAnimationFrame(rafId);
-  }, [currentTrack, shouldAutoplay, tryPlayCurrentTrack]);
+    window.addEventListener(MUSIC_PLAYER_STATUS_EVENT, handleMusicPlayerStatus);
+    return () => window.removeEventListener(MUSIC_PLAYER_STATUS_EVENT, handleMusicPlayerStatus);
+  }, []);
 
   useEffect(() => {
     const handleOverlayVisibility = (event: Event) => {
@@ -561,56 +477,11 @@ export default function Home() {
   }, []);
 
   function handlePlayOurSong() {
-    if (musicTracks.length === 0) return;
-    const featuredTrackIndex = musicTracks.findIndex((track) => track.isFeatured);
-    const initialTrackIndex = featuredTrackIndex >= 0 ? featuredTrackIndex : 0;
-    setIsPlayerVisible(true);
-    setIsPlayerExpanded(true);
-    setIsPlaylistOpen(false);
-    setCurrentTrackIndex(initialTrackIndex);
-    setShouldAutoplay(true);
-  }
-
-  function handleTogglePlayback() {
-    if (!currentTrack) return;
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (audio.paused) {
-      void tryPlayCurrentTrack();
-      return;
-    }
-
-    audio.pause();
-    setIsPlaying(false);
-  }
-
-  function handleNextTrack() {
-    if (musicTracks.length <= 1) return;
-    setCurrentTrackIndex((current) => {
-      const nextIndex = (current + 1) % musicTracks.length;
-      return nextIndex;
-    });
-    setShouldAutoplay(true);
-  }
-
-  function handleSelectTrack(index: number) {
-    setCurrentTrackIndex(index);
-    setIsPlayerVisible(true);
-    setIsPlayerExpanded(true);
-    setShouldAutoplay(true);
-  }
-
-  function handleStopPlayer() {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-    setIsPlaying(false);
-    setIsPlaylistOpen(false);
-    setIsPlayerExpanded(false);
-    setIsPlayerVisible(false);
+    window.dispatchEvent(
+      new CustomEvent(MUSIC_PLAYER_REQUEST_EVENT, {
+        detail: { action: "playFeatured" },
+      }),
+    );
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -759,14 +630,14 @@ export default function Home() {
             <button
               type="button"
               onClick={handlePlayOurSong}
-              disabled={musicLoading || musicTracks.length === 0}
+              disabled={musicPlayerStatus.loading || !musicPlayerStatus.hasTracks}
               className="rounded-full border border-[var(--gold)] bg-[var(--cream)] px-6 py-3 text-sm font-semibold text-[var(--ink-deep)] transition hover:bg-[var(--gold)]/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {musicLoading ? "Loading songs..." : "Play Our Song"}
+              {musicPlayerStatus.loading ? "Loading songs..." : "Play Our Song"}
             </button>
           </div>
-          {musicError ? (
-            <p className="mt-3 text-sm text-[var(--rosewood)]">{musicError}</p>
+          {musicPlayerStatus.error ? (
+            <p className="mt-3 text-sm text-[var(--rosewood)]">{musicPlayerStatus.error}</p>
           ) : (
             <p className="mt-3 text-sm text-[var(--ink-soft)]">
               Start with our featured song, then explore more tracks in the mini player.
@@ -805,19 +676,78 @@ export default function Home() {
         data-scroll-animate="left"
         className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6"
       >
-        <SectionHeading title="Our Story" subtitle="What began as a simple hello became our favorite adventure." />
-        <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-          <PlaceholderImageCard
-            label="Story Timeline Photo"
-            note="Replace with travel/proposal image"
-            heightClassName="h-[320px] sm:h-[420px]"
-          />
-          <div className="space-y-4">
-            <TimelineItem date="[Month Year]" text="We met at [place]." />
-            <TimelineItem date="[Month Year]" text="First trip together to [location]." />
-            <TimelineItem date="[Month Year]" text="The proposal at [location]." />
+        <SectionHeading title="Our Story" subtitle="From Red, for our guests." />
+        <article
+          data-scroll-animate="up"
+          className="relative mt-7 rounded-2xl border border-[var(--sand)] bg-[var(--cream)] px-5 pb-8 pt-12 text-[var(--ink-deep)] sm:px-6 sm:pb-10 sm:pt-14"
+        >
+          <figure
+            data-scroll-animate="pop"
+            className="mb-4 overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--surface)] lg:float-left lg:mb-3 lg:mr-6 lg:w-[34%]"
+          >
+            <div className="relative w-full" style={{ aspectRatio: "768 / 1365" }}>
+              <Image
+                src="/images/gallery/family-of-4-hd-final.jpg"
+                alt="Red and Jess with their two kids in a family portrait"
+                fill
+                sizes="(max-width: 1024px) 100vw, 34vw"
+                className="object-cover object-center"
+                style={{ objectPosition: "50% 50%" }}
+              />
+            </div>
+            <figcaption className="border-t border-[var(--sand)] bg-[var(--cream)] px-4 py-2 text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+              A memory from our journey together
+            </figcaption>
+          </figure>
+
+          <div className="font-display text-[17px] leading-[1.9] sm:text-[19px]">
+            <p>
+              &ldquo;Sa aming mahal na pamilya at mga kaibigan, maraming salamat sa pakikiisa sa
+              pinakamahalagang araw ng buhay namin ni Jess.
+            </p>
+            <p className="mt-3">
+              Ako si Red, at gusto kong ikuwento kung paano nagsimula ang journey naming dalawa.
+              Noong 1st year college pa lang sa Global Reciprocal Colleges, napapansin ko na si
+              Jess. Sabi ko sa sarili ko, ang ganda niya. May astig din siyang dating noon, medyo
+              boyish maglakad, at doon pa lang alam kong may kakaiba na sa kanya para sa akin.
+            </p>
+            <p className="mt-3">
+              Pareho kaming IT students, at noong 2nd year kami naging magkaklase. Kinuha ko ang
+              number niya sa isa naming kaklase, at nag-text ako nang hindi muna nagpapakilala.
+              Pero kalaunan, nagpakilala rin ako, at doon na nagsimula ang mas madalas na usapan,
+              kulitan, at ligawan.
+            </p>
+            <p className="mt-3">
+              Noong April 15, 2014, sinagot ako ni Jess sa 3rd floor ng Victory Mall, kasama ang
+              mga kaibigan niya na kinikilig habang pinapanood kami. Mula noon, sabay na naming
+              hinarap ang buhay.
+            </p>
+            <p className="mt-3">
+              Biniyayaan kami ng dalawang anak: si Jessie Rei (Kuya Jio), ipinanganak noong April
+              8, 2017, at si Calveen Rei (Calveentot), ipinanganak noong September 12, 2021.
+            </p>
+            <p className="mt-3">
+              Dumaan kami sa pinakamabigat na pagsubok nang malaman naming may CHD (Congenital
+              Heart Disease) si Calveen. Kinailangan siyang operahan dahil sa kondisyon ng puso
+              niya. Kahit pareho kaming walang trabaho noon, hindi kami pinabayaan ng Diyos, at
+              hindi kami sumuko ni Jess. Paulit-ulit kaming bumalik sa Heart Center para sa
+              checkups at sa buong proseso ng operation niya.
+            </p>
+            <p className="mt-3">
+              Naoperahan siya noong huling linggo ng March 2022 at nakauwi kami noong April 2022.
+              Pero noong November 26, 2022, kinuha na siya ni Lord. Napakasakit noon para sa amin,
+              pero sa awa at tulong ng Diyos, nanatili kaming matatag.
+            </p>
+            <p className="mt-3">
+              Sa lahat ng nangyari, mas lalo naming napatunayan na ang pag-ibig ay hindi lang para
+              sa masasayang araw, kundi para rin sa mga panahong pinakamahirap lumaban.
+            </p>
+            <p className="mt-3 lg:clear-both">
+              At para sa&apos;yo, Jess: salamat sa pagmamahal, lakas, at pananampalataya mo. Sa araw na
+              ito, at sa lahat ng araw pagkatapos nito, ikaw pa rin ang pipiliin ko.&rdquo;
+            </p>
           </div>
-        </div>
+        </article>
       </section>
 
       <section
@@ -1186,12 +1116,12 @@ export default function Home() {
           ))}
         </div>
         <div className="mt-6">
-          <a
+          <Link
             href="/gallery"
             className="inline-flex items-center rounded-full border border-[var(--gold)] bg-[var(--cream)] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-deep)] transition hover:bg-[var(--gold)]/20"
           >
             View Full Gallery
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -1279,7 +1209,7 @@ export default function Home() {
             question="Can I bring a plus-one?"
             answer="Due to limited venue capacity and resources, each invitation is reserved only for the guest name(s) listed and is non-transferable. Thank you for understanding."
           />
-          <FaqItem question="Are children invited?" answer="[Clarify if this is adults-only or family-friendly.]" />
+              <FaqItem question="Are children invited?" answer="Yes, this is a family-friendly wedding. Children are welcome if included in your invitation." />
           <FaqItem question="Where should I park?" answer="[Add parking details and overflow options.]" />
           <FaqItem
             question="What should I wear?"
@@ -1327,143 +1257,6 @@ export default function Home() {
           </p>
         </div>
       </section>
-
-      {isPlayerVisible && currentTrack ? (
-        <div className="fixed bottom-4 right-4 z-50 w-[min(92vw,370px)]">
-          <audio
-            ref={audioRef}
-            src={currentTrack.streamUrl}
-            preload="metadata"
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onError={() => {
-              setIsPlaying(false);
-              setAutoplayNotice("Unable to play this track. Please try another song.");
-            }}
-            onEnded={() => {
-              setCurrentTrackIndex((current) => {
-                if (current + 1 < musicTracks.length) {
-                  setShouldAutoplay(true);
-                  return current + 1;
-                }
-                setIsPlaying(false);
-                return current;
-              });
-            }}
-          />
-          {isPlayerExpanded ? (
-            <div className="rounded-2xl border border-[var(--sand)] bg-[var(--cream)]/95 p-4 shadow-xl backdrop-blur">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--ink-soft)]">
-                    {currentTrack.isFeatured ? "Our Song" : "Now Playing"}
-                  </p>
-                  <p className="truncate font-semibold text-[var(--ink-deep)]">{currentTrack.title}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsPlayerExpanded(false)}
-                  className="rounded-full border border-[var(--sand)] px-2 py-1 text-xs font-semibold text-[var(--ink-soft)] hover:text-[var(--ink-deep)]"
-                >
-                  Hide
-                </button>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleTogglePlayback}
-                  className="rounded-full bg-[var(--ink-deep)] px-4 py-2 text-xs font-semibold text-[var(--cream)]"
-                >
-                  {isPlaying ? "Pause" : "Play"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextTrack}
-                  disabled={musicTracks.length <= 1}
-                  className="rounded-full border border-[var(--sand)] px-4 py-2 text-xs font-semibold text-[var(--ink-deep)] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Next Song
-                </button>
-                <button
-                  type="button"
-                  onClick={handleStopPlayer}
-                  className="rounded-full border border-[var(--rosewood)] px-4 py-2 text-xs font-semibold text-[var(--rosewood)]"
-                >
-                  Stop
-                </button>
-                {hasMoreSongs ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsPlaylistOpen((current) => !current)}
-                    className="rounded-full border border-[var(--gold)] px-4 py-2 text-xs font-semibold text-[var(--ink-deep)]"
-                  >
-                    {isPlaylistOpen ? "Hide More Songs" : "More Songs"}
-                  </button>
-                ) : null}
-              </div>
-              {autoplayNotice ? (
-                <p className="mt-2 text-xs text-[var(--rosewood)]">{autoplayNotice}</p>
-              ) : null}
-              {isPlaylistOpen ? (
-                <div className="mt-3 rounded-xl border border-[var(--sand)] bg-[var(--surface-2)] p-2">
-                  <p className="px-2 text-[10px] uppercase tracking-[0.14em] text-[var(--ink-soft)]">
-                    More Songs
-                  </p>
-                  <div className="mt-2 space-y-1">
-                    {musicTracks.slice(1).map((track, index) => {
-                      const trackIndex = index + 1;
-                      const isCurrent = trackIndex === currentTrackIndex;
-                      return (
-                        <button
-                          key={track.id}
-                          type="button"
-                          onClick={() => handleSelectTrack(trackIndex)}
-                          className={`block w-full rounded-lg px-3 py-2 text-left text-xs transition ${
-                            isCurrent
-                              ? "bg-[var(--ink-deep)] text-[var(--cream)]"
-                              : "bg-[var(--cream)] text-[var(--ink-deep)] hover:bg-[var(--sand)]/60"
-                          }`}
-                        >
-                          {track.title}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 rounded-full border border-[var(--sand)] bg-[var(--cream)]/95 px-2 py-2 shadow-xl backdrop-blur">
-              <button
-                type="button"
-                onClick={() => setIsPlayerExpanded(true)}
-                className="min-w-0 flex-1 rounded-full px-2 py-1 text-left"
-              >
-                <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--ink-soft)]">
-                  {isPlaying ? "Playing" : "Paused"}
-                </p>
-                <p className="truncate text-sm font-semibold text-[var(--ink-deep)]">
-                  {currentTrack.title}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={handleTogglePlayback}
-                className="rounded-full bg-[var(--ink-deep)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--cream)]"
-              >
-                {isPlaying ? "Pause" : "Play"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsPlayerExpanded(true)}
-                className="rounded-full border border-[var(--sand)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-soft)]"
-              >
-                Open
-              </button>
-            </div>
-          )}
-        </div>
-      ) : null}
 
       <footer
         data-scroll-animate="up"
@@ -1631,15 +1424,6 @@ function HeroWeddingPhotoCard() {
           className="object-contain object-center"
         />
       </div>
-    </div>
-  );
-}
-
-function TimelineItem({ date, text }: { date: string; text: string }) {
-  return (
-    <div data-scroll-animate="right" className="rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-4">
-      <p className="text-xs uppercase tracking-[0.14em] text-[var(--ink-soft)]">{date}</p>
-      <p className="mt-2 text-sm text-[var(--ink-deep)]">{text}</p>
     </div>
   );
 }

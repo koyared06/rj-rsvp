@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Great_Vibes, Manrope, Source_Code_Pro } from "next/font/google";
 import Script from "next/script";
+import { GlobalMusicPlayer } from "@/components/global-music-player";
 import { ToasterProvider } from "@/components/toaster-provider";
 import "./globals.css";
 
@@ -62,6 +63,7 @@ export default function RootLayout({
           {themeBootstrapScript}
         </Script>
         {children}
+        <GlobalMusicPlayer />
         <ToasterProvider />
       </body>
     </html>

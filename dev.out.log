@@ -1,0 +1,18 @@
+
+> rj-rsvp@0.1.0 dev
+> next dev --port 3000
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://169.254.83.107:3000
+- Environments: .env.local
+✓ Ready in 1221ms
+
+○ Compiling /gallery ...
+ GET / 200 in 2.8s (next.js: 2.6s, application-code: 250ms)
+ GET /gallery 200 in 13.0s (next.js: 12.1s, application-code: 891ms)
+ GET /gallery 200 in 364ms (next.js: 9ms, application-code: 355ms)
+ GET /icon?62660d3f7921e4d3 200 in 1042ms (next.js: 858ms, application-code: 184ms)
+✓ Finished writing to filesystem cache in 14.0s
+✓ Finished filesystem cache database compaction in 11.3s
+[?25h

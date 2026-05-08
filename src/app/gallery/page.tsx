@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
@@ -221,7 +221,7 @@ const GALLERY_ITEMS: readonly GalleryItem[] = [
     objectPosition: "50% 24%",
   },
   {
-    src: "/images/gallery/family-of-4.jpg",
+    src: "/images/gallery/family-of-4-hd.JPG",
     alt: "Family of four portrait with Red and Jess",
     caption: "A precious family memory we hold close.",
     category: "Family",
@@ -426,7 +426,7 @@ export default function GalleryPage() {
 
       {activePhoto ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-4 py-6 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-3 py-3 backdrop-blur-md sm:px-4 sm:py-4"
           onClick={() => setActivePhotoIndex(null)}
         >
           <div
@@ -441,10 +441,10 @@ export default function GalleryPage() {
                 height={1067}
                 sizes="92vw"
                 priority
-                className="block max-h-[80vh] w-auto max-w-[92vw] object-contain"
+                className="mx-auto block h-auto w-auto max-h-[calc(100dvh-11rem)] max-w-[94vw] object-contain sm:max-h-[calc(100dvh-10rem)] sm:max-w-[92vw]"
               />
-              <div className="absolute left-3 top-3 max-w-[78%] sm:left-4 sm:top-4">
-                <p className="font-display text-lg italic leading-tight text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.75)] sm:text-xl">
+              <div className="border-t border-white/20 bg-black/45 px-3 py-2.5 sm:px-4 sm:py-3">
+                <p className="font-display text-sm italic leading-tight text-[#fdf1e4] sm:text-base">
                   {activePhoto.caption}
                 </p>
               </div>
@@ -457,7 +457,7 @@ export default function GalleryPage() {
               aria-label="Close photo preview"
             >
               <span aria-hidden="true" className="block text-base leading-none">
-                ×
+                &times;
               </span>
             </button>
 
@@ -498,3 +498,4 @@ export default function GalleryPage() {
     </main>
   );
 }
+
