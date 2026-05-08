@@ -140,6 +140,10 @@ body {
   font-family: var(--font-display), serif;
 }
 
+.font-script {
+  font-family: var(--font-script), cursive;
+}
+
 .cinematic-reveal {
   animation: fadeUp 0.8s ease both;
 }
@@ -185,10 +189,34 @@ body {
 }
 
 .ring-intro-couple {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: clamp(0.3em, 1vw, 0.54em);
   opacity: 0;
   text-shadow: 0 6px 24px rgba(14, 9, 8, 0.52);
   animation: fadeUp 1.05s ease forwards;
   animation-delay: 180ms;
+}
+
+.ring-intro-couple-name {
+  display: inline-block;
+  padding-inline: 0.04em;
+}
+
+.ring-intro-couple-ampersand {
+  display: inline-block;
+  font-size: 0.48em;
+  margin-inline: 0.07em;
+  transform: translateY(-0.02em);
+}
+
+.ring-intro-couple-highlight {
+  color: #f9e8d4;
+  text-shadow:
+    0 10px 26px rgba(14, 9, 8, 0.56),
+    0 1px 0 rgba(255, 247, 238, 0.7);
+  -webkit-text-stroke: 0.45px rgba(71, 44, 37, 0.28);
 }
 
 .ring-intro-date {
@@ -196,6 +224,13 @@ body {
   text-shadow: 0 2px 12px rgba(14, 9, 8, 0.48);
   animation: fadeUp 1.05s ease forwards;
   animation-delay: 360ms;
+}
+
+.ring-intro-time {
+  opacity: 0;
+  text-shadow: 0 2px 12px rgba(14, 9, 8, 0.48);
+  animation: fadeUp 1.05s ease forwards;
+  animation-delay: 470ms;
 }
 
 .scroll-animate-ready {

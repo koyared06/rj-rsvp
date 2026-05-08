@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Manrope, Source_Code_Pro } from "next/font/google";
+import { Cormorant_Garamond, Great_Vibes, Manrope, Source_Code_Pro } from "next/font/google";
+import Script from "next/script";
 import { ToasterProvider } from "@/components/toaster-provider";
 import "./globals.css";
 
@@ -16,6 +17,12 @@ const bodyFont = Manrope({
 
 const monoFont = Source_Code_Pro({
   variable: "--font-code",
+  subsets: ["latin"],
+});
+
+const scriptFont = Great_Vibes({
+  variable: "--font-script",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -47,11 +54,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} antialiased`}
+      className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable} ${scriptFont.variable} antialiased`}
       suppressHydrationWarning
     >
       <body suppressHydrationWarning>
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+        <Script id="theme-bootstrap" strategy="beforeInteractive">
+          {themeBootstrapScript}
+        </Script>
         {children}
         <ToasterProvider />
       </body>
