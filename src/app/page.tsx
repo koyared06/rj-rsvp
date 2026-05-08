@@ -59,6 +59,7 @@ const WEDDING_MAP_URL =
   "https://www.google.com/maps/search/?api=1&query=Seville+Garden%2C+3+Kab+Martin+Street%2C+Tinajeros%2C+Malabon%2C+1470+Kalakhang+Maynila";
 const WEDDING_MAP_EMBED_URL =
   "https://maps.google.com/maps?q=Seville%20Garden%2C%203%20Kab%20Martin%20Street%2C%20Tinajeros%2C%20Malabon%2C%201470%20Kalakhang%20Maynila&output=embed";
+const WEDDING_HASHTAG = "#soaferRED-ynasiJESS";
 const GALLERY_CAROUSEL_PHOTOS: readonly GalleryPhoto[] = [
   {
     src: "/images/gallery/tinginan.jpg",
@@ -664,6 +665,9 @@ export default function Home() {
             <span className="mx-2 text-[var(--gold)]">&</span>
             Jess
           </h1>
+          <p className="mt-3 font-display text-2xl italic leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.28)] sm:text-3xl">
+            {WEDDING_HASHTAG}
+          </p>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-[var(--ink-soft)] sm:text-lg">
             Invite you to celebrate their wedding day. Kindly respond through your personal invite
             link and explore the details below.
@@ -764,6 +768,10 @@ export default function Home() {
           title="Kindly Respond"
           subtitle="The favor of your reply is requested, on or before May 16, 2026."
         />
+        <p className="mt-3 text-sm text-[var(--ink-soft)]">
+          Share your snaps with our hashtag:{" "}
+          <span className="font-semibold text-[var(--ink-deep)]">{WEDDING_HASHTAG}</span>
+        </p>
         <div
           data-scroll-animate="pop"
           className="mt-7 rounded-2xl border border-[var(--sand)] bg-[var(--surface)] p-5 shadow-sm sm:p-6"
@@ -1315,7 +1323,8 @@ export default function Home() {
         data-scroll-animate="up"
         className="border-t border-[var(--sand)]/80 px-4 py-8 text-center text-xs text-[var(--ink-soft)] sm:px-6"
       >
-        Red & Jess Wedding RSVP
+        <p>Red & Jess Wedding RSVP</p>
+        <p className="mt-2 font-display text-lg italic text-[var(--ink-deep)]">{WEDDING_HASHTAG}</p>
       </footer>
       </div>
     </main>
