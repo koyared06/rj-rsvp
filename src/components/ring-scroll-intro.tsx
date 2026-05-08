@@ -13,6 +13,7 @@ type RingSequenceManifest = {
 
 type RingScrollIntroProps = {
   weddingDateLabel: string;
+  weddingTimeLabel: string;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -39,6 +40,7 @@ function emitOverlayVisibility(visible: boolean) {
 
 export default function RingScrollIntro({
   weddingDateLabel,
+  weddingTimeLabel,
 }: RingScrollIntroProps) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -254,11 +256,16 @@ export default function RingScrollIntro({
             <p className="ring-intro-kicker text-xs uppercase tracking-[0.34em] sm:text-sm">
               Together with their families
             </p>
-            <h1 className="ring-intro-couple mt-4 font-display text-5xl leading-[0.95] sm:text-7xl">
-              Red & Jess
+            <h1 className="ring-intro-couple ring-intro-couple-highlight mt-4 font-script text-6xl leading-[0.9] sm:text-8xl">
+              <span className="ring-intro-couple-name">Red</span>
+              <span className="ring-intro-couple-ampersand">&amp;</span>
+              <span className="ring-intro-couple-name">Jess</span>
             </h1>
             <p className="ring-intro-date mt-4 text-sm uppercase tracking-[0.22em] sm:text-base">
               {weddingDateLabel}
+            </p>
+            <p className="ring-intro-time mt-2 text-[11px] uppercase tracking-[0.24em] sm:text-xs">
+              {weddingTimeLabel} Ceremony
             </p>
           </div>
         </div>
