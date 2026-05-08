@@ -65,6 +65,14 @@ export const dynamic = "force-dynamic";
 const ADMIN_SESSION_KEY = "rj_admin_session_v1";
 const DEFAULT_PAGE_SIZE = 8;
 const DEFAULT_WEDDING_TIME = "16:00";
+const MIN_GUEST_LIMIT = 1;
+const MAX_GUEST_LIMIT = 20;
+
+function toGuestLimit(value: string) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) return MIN_GUEST_LIMIT;
+  return Math.min(MAX_GUEST_LIMIT, Math.max(MIN_GUEST_LIMIT, parsed));
+}
 
 function readStoredAdminSession(): string | null {
   try {
@@ -101,12 +109,12 @@ export default function AdminPage() {
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [maxGuests, setMaxGuests] = useState(1);
+  const [maxGuests, setMaxGuests] = useState(String(MIN_GUEST_LIMIT));
   const [notes, setNotes] = useState("");
   const [editRowNumber, setEditRowNumber] = useState<number | null>(null);
   const [editFullName, setEditFullName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [editMaxGuests, setEditMaxGuests] = useState(1);
+  const [editMaxGuests, setEditMaxGuests] = useState(String(MIN_GUEST_LIMIT));
   const [editNotes, setEditNotes] = useState("");
   const [editStatus, setEditStatus] = useState<GuestRow["status"]>("pending");
   const [qrGuest, setQrGuest] = useState<GuestRow | null>(null);
@@ -409,7 +417,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
         body: JSON.stringify({
           fullName,
           email,
-          maxGuests,
+          maxGuests: toGuestLimit(maxGuests),
           notes,
         }),
       });
@@ -426,7 +434,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
 
       setFullName("");
       setEmail("");
-      setMaxGuests(1);
+      setMaxGuests(String(MIN_GUEST_LIMIT));
       setNotes("");
       const generated = payload.inviteCode ? ` Invite code: ${payload.inviteCode}` : "";
       const successMessage = `Guest added.${generated}`;
@@ -447,7 +455,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
     setEditRowNumber(guest.rowNumber);
     setEditFullName(guest.fullName);
     setEditEmail(guest.email ?? "");
-    setEditMaxGuests(guest.maxGuests);
+    setEditMaxGuests(String(guest.maxGuests));
     setEditNotes(guest.notes ?? "");
     setEditStatus(guest.status);
     setIsEditGuestModalOpen(true);
@@ -459,7 +467,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
     await updateGuest(editRowNumber, {
       fullName: editFullName,
       email: editEmail,
-      maxGuests: editMaxGuests,
+      maxGuests: toGuestLimit(editMaxGuests),
       notes: editNotes,
       status: editStatus,
     });
@@ -1345,11 +1353,11 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               <input
                 className="rounded-lg border border-[var(--border)] px-3 py-2"
                 type="number"
-                min={1}
-                max={20}
+                min={MIN_GUEST_LIMIT}
+                max={MAX_GUEST_LIMIT}
                 placeholder="Max Guests"
                 value={maxGuests}
-                onChange={(event) => setMaxGuests(Number(event.target.value || 1))}
+                onChange={(event) => setMaxGuests(event.target.value)}
               />
               <input
                 className="sm:col-span-2 rounded-lg border border-[var(--border)] px-3 py-2"
@@ -1404,11 +1412,11 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               <input
                 className="rounded-lg border border-[var(--border)] px-3 py-2"
                 type="number"
-                min={1}
-                max={20}
+                min={MIN_GUEST_LIMIT}
+                max={MAX_GUEST_LIMIT}
                 placeholder="Max Guests"
                 value={editMaxGuests}
-                onChange={(event) => setEditMaxGuests(Number(event.target.value || 1))}
+                onChange={(event) => setEditMaxGuests(event.target.value)}
               />
               <select
                 className="rounded-lg border border-[var(--border)] px-3 py-2"
