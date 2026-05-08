@@ -48,10 +48,10 @@ type GalleryPhoto = {
   alt: string;
   caption: string;
   objectPosition?: string;
-  isFeatured?: boolean;
 };
 
 const DEFAULT_WEDDING_TIME = "16:00";
+const DEFAULT_WEDDING_DATE = "2026-06-06";
 const WEDDING_VENUE_NAME = "Seville Garden";
 const WEDDING_VENUE_ADDRESS =
   "3 Kab Martin Street, Tinajeros, Malabon, 1470 Kalakhang Maynila";
@@ -59,42 +59,80 @@ const WEDDING_MAP_URL =
   "https://www.google.com/maps/search/?api=1&query=Seville+Garden%2C+3+Kab+Martin+Street%2C+Tinajeros%2C+Malabon%2C+1470+Kalakhang+Maynila";
 const WEDDING_MAP_EMBED_URL =
   "https://maps.google.com/maps?q=Seville%20Garden%2C%203%20Kab%20Martin%20Street%2C%20Tinajeros%2C%20Malabon%2C%201470%20Kalakhang%20Maynila&output=embed";
-const GALLERY_PHOTOS: readonly GalleryPhoto[] = [
+const GALLERY_CAROUSEL_PHOTOS: readonly GalleryPhoto[] = [
   {
-    src: "/images/gallery/trio-smile-3.jpg",
-    alt: "Red and Jess smiling together with family",
-    caption: "Featured Moment",
-    isFeatured: true,
-    objectPosition: "50% 22%",
+    src: "/images/gallery/tinginan.jpg",
+    alt: "Red and Jess sharing a warm look together",
+    caption: "From this look, everything felt right.",
+    objectPosition: "50% 26%",
   },
   {
     src: "/images/gallery/duo-hold-flower-2.jpg",
     alt: "Red and Jess holding flowers",
-    caption: "Blooming Together",
+    caption: "A love story in full bloom.",
     objectPosition: "50% 26%",
   },
   {
-    src: "/images/gallery/duo-with-shades-6.jpg",
-    alt: "Red and Jess candid shot with shades",
-    caption: "Playful Vibe",
-    objectPosition: "50% 24%",
-  },
-  {
-    src: "/images/gallery/duo-sit-7.jpg",
+    src: "/images/gallery/duo-sit-9.jpg",
     alt: "Red and Jess seated portrait",
-    caption: "Seated Portrait",
+    caption: "Soft moments, strong forever.",
     objectPosition: "50% 24%",
   },
   {
-    src: "/images/gallery/duo-hug-2.jpg",
-    alt: "Red and Jess smiling during a hug",
-    caption: "Warm Embrace",
+    src: "/images/gallery/duo-hug-9.jpg",
+    alt: "Red and Jess in a close embrace",
+    caption: "Home is wherever we hold each other.",
     objectPosition: "50% 24%",
   },
+];
+
+const GALLERY_FEATURED_PHOTOS: readonly GalleryPhoto[] = [
   {
-    src: "/images/gallery/tinginan-with-kuya.jpg",
-    alt: "Red and Jess candid glance",
-    caption: "Candid Glance",
+    src: "/images/gallery/hands-2.jpg",
+    alt: "Red and Jess holding hands",
+    caption: "Hand in hand, always.",
+    objectPosition: "50% 50%",
+  },
+  {
+    src: "/images/gallery/kiss-kuya.jpg",
+    alt: "Red and Jess in a playful close-up moment",
+    caption: "Playful love, everyday joy.",
+    objectPosition: "50% 25%",
+  },
+  {
+    src: "/images/gallery/duo-with-shades-8.jpg",
+    alt: "Red and Jess in sunglasses",
+    caption: "Cool together, forever together.",
+    objectPosition: "50% 26%",
+  },
+  {
+    src: "/images/gallery/trio-smile-1.jpg",
+    alt: "Red and Jess smiling with family",
+    caption: "Love that grows as a family.",
+    objectPosition: "50% 26%",
+  },
+  {
+    src: "/images/gallery/trio-sit-hug-4.jpg",
+    alt: "Red and Jess with family in a warm seated portrait",
+    caption: "Three hearts, one beautiful story.",
+    objectPosition: "50% 28%",
+  },
+  {
+    src: "/images/gallery/trio-kulitan-1.jpg",
+    alt: "Red and Jess sharing laughter with family",
+    caption: "Laughter is part of our vows too.",
+    objectPosition: "50% 25%",
+  },
+  {
+    src: "/images/gallery/groom-to-be-1.jpg",
+    alt: "Red portrait with groom sash",
+    caption: "Future husband energy.",
+    objectPosition: "50% 26%",
+  },
+  {
+    src: "/images/gallery/bride-harap-3.jpg",
+    alt: "Jess portrait with bridal bouquet",
+    caption: "Radiant bride-to-be.",
     objectPosition: "50% 26%",
   },
 ];
@@ -108,7 +146,7 @@ export default function Home() {
   const [accessLoading, setAccessLoading] = useState(true);
   const [selectedGuest, setSelectedGuest] = useState<GuestAccessResult | null>(null);
   const [settings, setSettings] = useState<AccessSettings>({
-    weddingDate: "",
+    weddingDate: DEFAULT_WEDDING_DATE,
     weddingTime: DEFAULT_WEDDING_TIME,
     showCountdown: true,
     countdownDays: null,
@@ -139,6 +177,7 @@ export default function Home() {
   const [isNavbarVisible, setIsNavbarVisible] = useState(false);
   const [isGcashModalOpen, setIsGcashModalOpen] = useState(false);
   const [selectedGcashRecipient, setSelectedGcashRecipient] = useState<"groom" | "bride">("groom");
+  const [activeGallerySlideIndex, setActiveGallerySlideIndex] = useState(0);
   const canUseDom = typeof window !== "undefined";
 
   useEffect(() => {
@@ -210,6 +249,31 @@ export default function Home() {
     [musicTracks, currentTrackIndex],
   );
   const hasMoreSongs = musicTracks.length > 1;
+  const totalGallerySlides = GALLERY_CAROUSEL_PHOTOS.length;
+
+  const showPreviousGallerySlide = useCallback(() => {
+    setActiveGallerySlideIndex((current) =>
+      (current - 1 + totalGallerySlides) % totalGallerySlides,
+    );
+  }, [totalGallerySlides]);
+
+  const showNextGallerySlide = useCallback(() => {
+    setActiveGallerySlideIndex((current) => (current + 1) % totalGallerySlides);
+  }, [totalGallerySlides]);
+
+  const jumpToGallerySlide = useCallback((index: number) => {
+    setActiveGallerySlideIndex(index);
+  }, []);
+
+  useEffect(() => {
+    if (totalGallerySlides <= 1) return;
+
+    const interval = window.setInterval(() => {
+      setActiveGallerySlideIndex((current) => (current + 1) % totalGallerySlides);
+    }, 5600);
+
+    return () => window.clearInterval(interval);
+  }, [totalGallerySlides]);
 
   const loadMusicPlaylist = useCallback(async () => {
     setMusicLoading(true);
@@ -275,7 +339,11 @@ export default function Home() {
 
       setSelectedGuest(payload.guest);
       setSettings({
-        weddingDate: payload.settings?.weddingDate ?? "",
+        weddingDate:
+          typeof payload.settings?.weddingDate === "string" &&
+          payload.settings.weddingDate.trim().length > 0
+            ? payload.settings.weddingDate
+            : DEFAULT_WEDDING_DATE,
         weddingTime: payload.settings?.weddingTime ?? DEFAULT_WEDDING_TIME,
         showCountdown:
           typeof payload.settings?.showCountdown === "boolean"
@@ -309,7 +377,11 @@ export default function Home() {
       if (!response.ok) return;
 
       setSettings({
-        weddingDate: payload.settings?.weddingDate ?? "",
+        weddingDate:
+          typeof payload.settings?.weddingDate === "string" &&
+          payload.settings.weddingDate.trim().length > 0
+            ? payload.settings.weddingDate
+            : DEFAULT_WEDDING_DATE,
         weddingTime: payload.settings?.weddingTime ?? DEFAULT_WEDDING_TIME,
         showCountdown:
           typeof payload.settings?.showCountdown === "boolean"
@@ -1009,18 +1081,35 @@ export default function Home() {
         data-scroll-animate="up"
         className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6"
       >
-        <SectionHeading title="Gallery" subtitle="A few moments from our journey together." />
-        <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {GALLERY_PHOTOS.map((photo) => (
+        <SectionHeading title="Gallery" subtitle="Featured moments from our journey together." />
+        <div className="mt-7">
+          <GalleryCarousel
+            photos={GALLERY_CAROUSEL_PHOTOS}
+            activeIndex={activeGallerySlideIndex}
+            onPrevious={showPreviousGallerySlide}
+            onNext={showNextGallerySlide}
+            onSelect={jumpToGallerySlide}
+          />
+        </div>
+        <p className="mt-8 text-xs uppercase tracking-[0.16em] text-[var(--ink-soft)]">Best Moments</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {GALLERY_FEATURED_PHOTOS.map((photo) => (
             <GalleryPhotoCard
               key={photo.src}
               src={photo.src}
               alt={photo.alt}
               caption={photo.caption}
-              isFeatured={photo.isFeatured}
               objectPosition={photo.objectPosition}
             />
           ))}
+        </div>
+        <div className="mt-6">
+          <a
+            href="/gallery"
+            className="inline-flex items-center rounded-full border border-[var(--gold)] bg-[var(--cream)] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-deep)] transition hover:bg-[var(--gold)]/20"
+          >
+            View Full Gallery
+          </a>
         </div>
       </section>
 
@@ -1265,31 +1354,101 @@ function PlaceholderImageCard({
   );
 }
 
+function GalleryCarousel({
+  photos,
+  activeIndex,
+  onPrevious,
+  onNext,
+  onSelect,
+}: {
+  photos: readonly GalleryPhoto[];
+  activeIndex: number;
+  onPrevious: () => void;
+  onNext: () => void;
+  onSelect: (index: number) => void;
+}) {
+  const activePhoto = photos[activeIndex];
+
+  return (
+    <div
+      data-scroll-animate="pop"
+      className="relative overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)]"
+    >
+      <div className="relative h-[300px] sm:h-[430px]">
+        <Image
+          src={activePhoto.src}
+          alt={activePhoto.alt}
+          fill
+          priority={activeIndex === 0}
+          sizes="(max-width: 640px) 100vw, 96vw"
+          className="object-cover object-center transition duration-500"
+          style={{ objectPosition: activePhoto.objectPosition ?? "50% 25%" }}
+        />
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-4 pt-10 sm:px-5">
+          <p className="text-sm font-semibold text-[var(--cream)] sm:text-base">{activePhoto.caption}</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onPrevious}
+        className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-[var(--sand)] bg-[var(--cream)]/90 p-2 text-[var(--ink-deep)] backdrop-blur transition hover:bg-[var(--cream)]"
+        aria-label="Show previous photo"
+      >
+        <span aria-hidden="true" className="block text-lg leading-none">
+          &#8249;
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onNext}
+        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-[var(--sand)] bg-[var(--cream)]/90 p-2 text-[var(--ink-deep)] backdrop-blur transition hover:bg-[var(--cream)]"
+        aria-label="Show next photo"
+      >
+        <span aria-hidden="true" className="block text-lg leading-none">
+          &#8250;
+        </span>
+      </button>
+      <div className="flex items-center justify-center gap-2 border-t border-[var(--sand)]/70 bg-[var(--cream)] px-4 py-3">
+        {photos.map((photo, index) => {
+          const isActive = index === activeIndex;
+          return (
+            <button
+              key={photo.src}
+              type="button"
+              onClick={() => onSelect(index)}
+              aria-label={`Show gallery slide ${index + 1}`}
+              className={`h-2.5 rounded-full transition ${
+                isActive ? "w-7 bg-[var(--ink-deep)]" : "w-2.5 bg-[var(--sand)] hover:bg-[var(--gold)]"
+              }`}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function GalleryPhotoCard({
   src,
   alt,
   caption,
-  isFeatured = false,
   objectPosition,
 }: {
   src: string;
   alt: string;
   caption: string;
-  isFeatured?: boolean;
   objectPosition?: string;
 }) {
   return (
     <figure
       data-scroll-animate="pop"
-      className={`group relative overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)] ${
-        isFeatured ? "h-[320px] sm:col-span-2 sm:h-[460px] lg:col-span-2" : "h-[220px]"
-      }`}
+      className="group relative h-[220px] overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)] sm:h-[240px]"
     >
       <Image
         src={src}
         alt={alt}
         fill
-        sizes={isFeatured ? "(max-width: 640px) 100vw, 66vw" : "(max-width: 640px) 100vw, 33vw"}
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
         className="object-cover object-center transition duration-500 group-hover:scale-[1.03]"
         style={{ objectPosition: objectPosition ?? "50% 25%" }}
       />
