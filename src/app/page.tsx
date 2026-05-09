@@ -2,6 +2,7 @@
 
 import {
   FormEvent,
+  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -58,6 +59,8 @@ type GalleryPhoto = {
 
 const DEFAULT_WEDDING_TIME = "16:00";
 const DEFAULT_WEDDING_DATE = "2026-06-06";
+const MIN_DECLINED_GUEST_COUNT = 0;
+const MIN_ATTENDING_GUEST_COUNT = 1;
 const WEDDING_VENUE_NAME = "Seville Garden";
 const WEDDING_VENUE_ADDRESS =
   "3 Kab Martin Street, Tinajeros, Malabon, 1470 Kalakhang Maynila";
@@ -144,6 +147,18 @@ const GALLERY_FEATURED_PHOTOS: readonly GalleryPhoto[] = [
   },
 ];
 
+function normalizeGuestCountInput(
+  value: string,
+  maxGuests: number,
+  attendance: "attending" | "declined",
+) {
+  const minGuests =
+    attendance === "declined" ? MIN_DECLINED_GUEST_COUNT : MIN_ATTENDING_GUEST_COUNT;
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) return minGuests;
+  return Math.max(minGuests, Math.min(maxGuests, parsed));
+}
+
 export default function Home() {
   const router = useRouter();
   const accessCheckedRef = useRef(false);
@@ -161,11 +176,9 @@ export default function Home() {
   const [accessError, setAccessError] = useState("");
 
   const [attendance, setAttendance] = useState<"attending" | "declined">("attending");
-  const [guestCount, setGuestCount] = useState(1);
+  const [guestCountInput, setGuestCountInput] = useState(String(MIN_ATTENDING_GUEST_COUNT));
   const [companionNameByIndex, setCompanionNameByIndex] = useState<Record<number, string>>({});
   const [email, setEmail] = useState("");
-  const [dietaryRestrictions, setDietaryRestrictions] = useState("");
-  const [songRequest, setSongRequest] = useState("");
   const [message, setMessage] = useState("");
   const [submitLoading, setSubmitLoading] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -256,6 +269,14 @@ export default function Home() {
     return `Invite limit: up to ${selectedGuest.maxGuests} guest(s).`;
   }, [selectedGuest]);
 
+  const guestCount = useMemo(() => {
+    return normalizeGuestCountInput(
+      guestCountInput,
+      selectedGuest?.maxGuests ?? MIN_ATTENDING_GUEST_COUNT,
+      attendance,
+    );
+  }, [attendance, guestCountInput, selectedGuest]);
+
   const expectedCompanionCount = useMemo(() => {
     if (attendance !== "attending") return 0;
     return Math.max(0, guestCount - 1);
@@ -345,7 +366,7 @@ export default function Home() {
             ? payload.settings.countdownDays
             : null,
       });
-      setGuestCount(Math.min(payload.guest.maxGuests, 1));
+      setGuestCountInput(String(Math.min(payload.guest.maxGuests, MIN_ATTENDING_GUEST_COUNT)));
       setCompanionNameByIndex({});
       setSubmitAttempted(false);
       toast.success("Invitation verified", {
@@ -517,8 +538,6 @@ export default function Home() {
           attendance,
           guestCount,
           companionNames,
-          dietaryRestrictions,
-          songRequest,
           message,
         }),
       });
@@ -816,14 +835,14 @@ export default function Home() {
                     setAttendance(nextAttendance);
                     setSubmitAttempted(false);
                     if (nextAttendance === "declined") {
-                      setGuestCount(0);
+                      setGuestCountInput(String(MIN_DECLINED_GUEST_COUNT));
                       return;
                     }
-                    setGuestCount((currentCount) => {
-                      if (currentCount < 1) return 1;
-                      if (currentCount > selectedGuest.maxGuests) return selectedGuest.maxGuests;
-                      return currentCount;
-                    });
+                    setGuestCountInput((currentCount) =>
+                      String(
+                        normalizeGuestCountInput(currentCount, selectedGuest.maxGuests, "attending"),
+                      ),
+                    );
                   }}
                 >
                   <option value="attending">Joyfully Attending</option>
@@ -836,15 +855,26 @@ export default function Home() {
                   type="number"
                   min={attendance === "declined" ? 0 : 1}
                   max={selectedGuest.maxGuests}
-                  value={guestCount}
+                  value={guestCountInput}
                   onChange={(event) => {
-                    const raw = Number(event.target.value || 0);
-                    const bounded = Number.isFinite(raw)
-                      ? Math.max(0, Math.min(selectedGuest.maxGuests, raw))
-                      : 0;
-                    setGuestCount(bounded);
+                    const nextValue = event.target.value;
+                    if (nextValue === "") {
+                      setGuestCountInput("");
+                      setSubmitAttempted(false);
+                      return;
+                    }
+                    setGuestCountInput(
+                      String(
+                        normalizeGuestCountInput(nextValue, selectedGuest.maxGuests, attendance),
+                      ),
+                    );
                     setSubmitAttempted(false);
                   }}
+                  onBlur={() =>
+                    setGuestCountInput(
+                      String(normalizeGuestCountInput(guestCountInput, selectedGuest.maxGuests, attendance)),
+                    )
+                  }
                 />
 
                 {expectedCompanionCount > 0 ? (
@@ -888,22 +918,6 @@ export default function Home() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@example.com"
-                />
-
-                <label className="text-sm font-medium text-[var(--ink-deep)]">Dietary Restrictions</label>
-                <input
-                  className="rounded-lg border border-[var(--sand)] bg-[var(--cream)] px-3 py-2"
-                  value={dietaryRestrictions}
-                  onChange={(event) => setDietaryRestrictions(event.target.value)}
-                  placeholder="Optional"
-                />
-
-                <label className="text-sm font-medium text-[var(--ink-deep)]">Song Request</label>
-                <input
-                  className="rounded-lg border border-[var(--sand)] bg-[var(--cream)] px-3 py-2"
-                  value={songRequest}
-                  onChange={(event) => setSongRequest(event.target.value)}
-                  placeholder="Optional"
                 />
 
                 <label className="text-sm font-medium text-[var(--ink-deep)]">Message to Couple</label>
@@ -1210,7 +1224,34 @@ export default function Home() {
             answer="Due to limited venue capacity and resources, each invitation is reserved only for the guest name(s) listed and is non-transferable. Thank you for understanding."
           />
               <FaqItem question="Are children invited?" answer="Yes, this is a family-friendly wedding. Children are welcome if included in your invitation." />
-          <FaqItem question="Where should I park?" answer="[Add parking details and overflow options.]" />
+          <FaqItem
+            question="Where should I park?"
+            answer={
+              <>
+                Please note that only 2 to 3 cars can park at the venue, so space is very
+                limited. We recommend parking at Robinsons Town Mall Malabon instead. From there,
+                you can take a tricycle or e-bike and tell the driver you are going to Seville
+                Garden.
+                <a
+                  href="https://www.google.com/maps/search/?api=1&query=Robinsons+Town+Mall+Malabon"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 block font-medium text-[var(--ink-deep)] underline decoration-[var(--ink-soft)]/60 underline-offset-2"
+                >
+                  View Robinsons Town Mall Malabon on Google Maps
+                </a>
+                <span className="mt-2 block overflow-hidden rounded-lg border border-[var(--sand)]">
+                  <iframe
+                    title="Map to Robinsons Town Mall Malabon"
+                    src="https://www.google.com/maps?q=Robinsons+Town+Mall+Malabon&output=embed"
+                    className="h-52 w-full"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </span>
+              </>
+            }
+          />
           <FaqItem
             question="What should I wear?"
             answer="Dress code is Semi-Formal. Any color is welcome, as long as it is pastel."
@@ -1252,6 +1293,13 @@ export default function Home() {
               className="font-semibold text-[var(--ink-deep)] underline decoration-[var(--gold)] underline-offset-4"
             >
               09510641719
+            </a>
+            {" "}or{" "}
+            <a
+              href="tel:09334431551"
+              className="font-semibold text-[var(--ink-deep)] underline decoration-[var(--gold)] underline-offset-4"
+            >
+              09334431551
             </a>
             .
           </p>
@@ -1484,7 +1532,7 @@ function ColorMotifCard() {
   );
 }
 
-function FaqItem({ question, answer }: { question: string; answer: string }) {
+function FaqItem({ question, answer }: { question: string; answer: ReactNode }) {
   return (
     <details data-scroll-animate="up" className="rounded-xl border border-[var(--sand)] bg-[var(--cream)] p-4">
       <summary className="cursor-pointer list-none font-medium text-[var(--ink-deep)]">{question}</summary>

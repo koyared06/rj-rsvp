@@ -12,8 +12,6 @@ export const rsvpSubmitSchema = z.object({
   attendance: z.enum(["attending", "declined"]),
   guestCount: z.coerce.number().int().min(0).max(20),
   companionNames: z.array(z.string().trim().min(1).max(120)).optional().default([]),
-  dietaryRestrictions: z.string().trim().max(250).optional().or(z.literal("")),
-  songRequest: z.string().trim().max(250).optional().or(z.literal("")),
   message: z.string().trim().max(500).optional().or(z.literal("")),
 }).superRefine((data, ctx) => {
   if (data.attendance === "declined" && data.guestCount !== 0) {

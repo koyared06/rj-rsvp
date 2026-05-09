@@ -76,11 +76,14 @@ export function toGuestRow(row: string[], rowNumber: number): GuestRow {
 }
 
 export function toRsvpRow(row: string[], rowNumber: number): RsvpRow {
-  // New format:
+  // Current format (without dietary/song):
+  // timestamp,inviteCode,fullName,email,attendance,guestCount,message,companionNames,source
+  // Previous format:
   // timestamp,inviteCode,fullName,email,attendance,guestCount,dietaryRestrictions,songRequest,message,companionNames,source
   // Legacy format:
   // timestamp,inviteCode,fullName,email,attendance,guestCount,dietaryRestrictions,songRequest,message,source
-  const hasCompanionColumn = row.length >= 11;
+  const hasDietaryAndSongColumns = row.length >= 10;
+  const hasCompanionColumn = row.length >= 11 || (!hasDietaryAndSongColumns && row.length >= 9);
 
   return {
     rowNumber,
@@ -90,11 +93,21 @@ export function toRsvpRow(row: string[], rowNumber: number): RsvpRow {
     email: cell(row, 3),
     attendance: cell(row, 4),
     guestCount: normalizeNumber(cell(row, 5), 0),
-    dietaryRestrictions: cell(row, 6),
-    songRequest: cell(row, 7),
-    message: cell(row, 8),
-    companionNames: hasCompanionColumn ? cell(row, 9) : "",
-    source: hasCompanionColumn ? cell(row, 10) : cell(row, 9),
+    dietaryRestrictions: hasDietaryAndSongColumns ? cell(row, 6) : "",
+    songRequest: hasDietaryAndSongColumns ? cell(row, 7) : "",
+    message: hasDietaryAndSongColumns ? cell(row, 8) : cell(row, 6),
+    companionNames: hasCompanionColumn
+      ? hasDietaryAndSongColumns
+        ? cell(row, 9)
+        : cell(row, 7)
+      : "",
+    source: hasCompanionColumn
+      ? hasDietaryAndSongColumns
+        ? cell(row, 10)
+        : cell(row, 8)
+      : hasDietaryAndSongColumns
+        ? cell(row, 9)
+        : "",
   };
 }
 

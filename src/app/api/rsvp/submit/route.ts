@@ -80,8 +80,6 @@ export async function POST(request: Request) {
       payload.email ?? "",
       payload.attendance,
       String(payload.guestCount),
-      payload.dietaryRestrictions ?? "",
-      payload.songRequest ?? "",
       payload.message ?? "",
       normalizedCompanionNames.join(" | "),
       "web-form",
@@ -90,7 +88,7 @@ export async function POST(request: Request) {
     if (existingRsvp) {
       await updateRow(rsvpSheetName, existingRsvp.rowNumber, rsvpValues);
     } else {
-      await appendRow(`${rsvpSheetName}!A2:K`, rsvpValues);
+      await appendRow(`${rsvpSheetName}!A2:I`, rsvpValues);
     }
 
     await updateRow(
