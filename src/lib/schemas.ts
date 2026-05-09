@@ -66,3 +66,55 @@ export const updateWeddingDateSchema = z.object({
     .optional(),
   showCountdown: z.boolean().optional(),
 });
+
+const entourageSlugSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(80)
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    "Slug must use lowercase letters, numbers, and hyphens only.",
+  );
+
+export const createEntourageCategorySchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  slug: entourageSlugSchema.optional(),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional(),
+  isVisible: z.boolean().optional(),
+});
+
+export const updateEntourageCategorySchema = z.object({
+  id: z.string().trim().min(1),
+  name: z.string().trim().min(2).max(120).optional(),
+  slug: entourageSlugSchema.optional(),
+  sortOrder: z.coerce.number().int().min(0).max(9999).optional(),
+  isVisible: z.boolean().optional(),
+});
+
+export const deleteEntourageCategorySchema = z.object({
+  id: z.string().trim().min(1),
+});
+
+export const createEntourageMemberSchema = z.object({
+  categoryId: z.string().trim().min(1),
+  fullName: z.string().trim().min(2).max(120),
+  side: z.enum(["bride", "groom", "none"]).optional(),
+  memberOrder: z.coerce.number().int().min(0).max(9999).optional(),
+  isVisible: z.boolean().optional(),
+  notes: z.string().trim().max(250).optional().or(z.literal("")),
+});
+
+export const updateEntourageMemberSchema = z.object({
+  id: z.string().trim().min(1),
+  categoryId: z.string().trim().min(1).optional(),
+  fullName: z.string().trim().min(2).max(120).optional(),
+  side: z.enum(["bride", "groom", "none"]).optional(),
+  memberOrder: z.coerce.number().int().min(0).max(9999).optional(),
+  isVisible: z.boolean().optional(),
+  notes: z.string().trim().max(250).optional().or(z.literal("")).optional(),
+});
+
+export const deleteEntourageMemberSchema = z.object({
+  id: z.string().trim().min(1),
+});

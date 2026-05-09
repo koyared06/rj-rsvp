@@ -290,6 +290,327 @@ body {
   }
 }
 
+.entourage-board {
+  position: relative;
+  overflow: visible;
+  border-radius: 1.6rem;
+  border: 2px solid color-mix(in srgb, var(--sand) 58%, #5e8a63 42%);
+  background:
+    radial-gradient(circle at 14% 14%, rgba(255, 255, 255, 0.5), transparent 30%),
+    radial-gradient(circle at 86% 86%, rgba(201, 225, 190, 0.38), transparent 32%),
+    linear-gradient(180deg, #eff7e9 0%, #e7f2e0 100%);
+  box-shadow:
+    0 14px 30px rgba(51, 76, 46, 0.14),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  padding: 6rem clamp(0.95rem, 4vw, 2.2rem) clamp(2rem, 4vw, 2.8rem);
+}
+
+.entourage-board::before {
+  content: "";
+  position: absolute;
+  top: -220px;
+  left: 50%;
+  width: min(122%, 1360px);
+  height: 360px;
+  transform: translateX(-50%);
+  background-image: url("/images/floral-border/elegant spring flower border.png");
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: top center;
+  opacity: 0.97;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.entourage-board-header,
+.entourage-board > .space-y-8,
+.entourage-board > p {
+  position: relative;
+  z-index: 3;
+}
+
+.entourage-corner {
+  position: absolute;
+  width: 286px;
+  height: 286px;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.82;
+  pointer-events: none;
+  background-image: url("/images/floral-border/dusty rose flower border.png");
+  z-index: 2;
+}
+
+.entourage-corner-top-left {
+  top: -66px;
+  left: -44px;
+  transform: rotate(12deg);
+}
+
+.entourage-corner-bottom-right {
+  bottom: -82px;
+  right: -52px;
+  transform: rotate(196deg);
+}
+
+.entourage-photo-corner {
+  position: absolute;
+  bottom: -30px;
+  left: -62px;
+  width: 260px;
+  height: 260px;
+  border-radius: 1.2rem;
+  border: 5px solid rgba(255, 255, 255, 0.9);
+  background-image: url("/images/floral-border/duo-closeup-3-v2.jpg");
+  background-size: cover;
+  background-position: center 28%;
+  box-shadow:
+    0 20px 36px rgba(31, 49, 31, 0.3),
+    inset 0 0 0 1px rgba(36, 70, 43, 0.2);
+  transform: rotate(-6deg);
+  pointer-events: none;
+  z-index: 30;
+}
+
+.entourage-board-header {
+  margin-bottom: 1.8rem;
+  text-align: center;
+}
+
+.entourage-board-title {
+  font-family: var(--font-display), serif;
+  font-size: clamp(2.05rem, 5.7vw, 3rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #1f4126;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.72),
+    0 3px 0 rgba(33, 67, 40, 0.22);
+}
+
+.entourage-board-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--ink-soft) 80%, #365f3c 20%);
+}
+
+.entourage-category-block {
+  margin-inline: auto;
+  max-width: 760px;
+  border-radius: 1rem;
+  padding: 0.8rem 0.65rem 0.95rem;
+  background: color-mix(in srgb, #ffffff 34%, transparent);
+}
+
+.entourage-category-block-narrow {
+  max-width: 620px;
+}
+
+.entourage-category-block + .entourage-category-block {
+  margin-top: 0.5rem;
+  border-top: 1px dashed color-mix(in srgb, #5e8a63 38%, transparent);
+  padding-top: 1.4rem;
+}
+
+.entourage-category-title {
+  text-align: center;
+  font-family: var(--font-display), serif;
+  font-size: clamp(1.35rem, 3.7vw, 1.92rem);
+  color: #204226;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7),
+    0 2px 0 rgba(31, 70, 39, 0.15);
+}
+
+.entourage-category-note {
+  margin-top: 0.08rem;
+  text-align: center;
+  font-family: var(--font-script), cursive;
+  font-size: clamp(0.9rem, 2.3vw, 0.98rem);
+  color: color-mix(in srgb, var(--ink-soft) 78%, #2d5a37 22%);
+}
+
+.entourage-category-note-readable {
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  color: color-mix(in srgb, var(--ink-soft) 80%, #365f3c 20%);
+}
+
+.entourage-member-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.18rem 1.2rem;
+  margin-inline: auto;
+  max-width: 640px;
+}
+
+.entourage-member-grid-by-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.18rem 1.2rem;
+  margin-inline: auto;
+  max-width: 640px;
+}
+
+.entourage-member-grid-sideaware {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.18rem 1.2rem;
+  margin-inline: auto;
+  max-width: 640px;
+  padding: 0;
+  list-style: none;
+}
+
+.entourage-member-column {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: center;
+}
+
+.entourage-member-column .entourage-member-name + .entourage-member-name {
+  margin-top: 0.15rem;
+}
+
+.entourage-honor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1.3rem;
+  margin-inline: auto;
+  max-width: 640px;
+  align-items: start;
+}
+
+.entourage-honor-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+}
+
+.entourage-honor-title {
+  font-family: var(--font-display), serif;
+  font-size: clamp(1.22rem, 2.95vw, 1.68rem);
+  color: #204226;
+  line-height: 1.15;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7),
+    0 2px 0 rgba(31, 70, 39, 0.15);
+}
+
+.entourage-honor-members {
+  margin: 0.35rem auto 0;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+  text-align: center;
+}
+
+.entourage-member-stack {
+  margin-inline: auto;
+  max-width: 520px;
+  text-align: center;
+}
+
+.entourage-member-stack-narrow {
+  max-width: 360px;
+}
+
+.entourage-member-stack .entourage-member-name + .entourage-member-name {
+  margin-top: 0.15rem;
+}
+
+.entourage-member-cell {
+  text-align: center;
+}
+
+.entourage-member-name {
+  font-family: var(--font-script), cursive;
+  font-size: clamp(1.2rem, 2.8vw, 1.5rem);
+  line-height: 1.22;
+  letter-spacing: 0.01em;
+  color: #1e3c24;
+}
+
+.entourage-member-side-left {
+  grid-column: 1;
+  text-align: center;
+}
+
+.entourage-member-side-right {
+  grid-column: 2;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .entourage-board {
+    padding: 4.9rem 0.8rem 1.75rem;
+  }
+
+  .entourage-board::before {
+    top: -152px;
+    width: min(118%, 860px);
+    height: 220px;
+  }
+
+  .entourage-corner {
+    width: 148px;
+    height: 148px;
+  }
+
+  .entourage-corner-top-left {
+    display: none;
+  }
+
+  .entourage-corner-bottom-right {
+    bottom: -40px;
+    right: -16px;
+  }
+
+  .entourage-member-grid {
+    grid-template-columns: 1fr;
+    max-width: 360px;
+  }
+
+  .entourage-member-grid-by-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.2rem 0.55rem;
+    max-width: 300px;
+  }
+
+  .entourage-member-grid-sideaware {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.2rem 0.55rem;
+    max-width: 300px;
+  }
+
+  .entourage-honor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.28rem 0.5rem;
+    max-width: 300px;
+  }
+
+  .entourage-honor-title {
+    font-size: clamp(1rem, 5vw, 1.22rem);
+  }
+
+  .entourage-member-name {
+    font-size: clamp(1rem, 5vw, 1.24rem);
+    line-height: 1.18;
+  }
+
+  .entourage-board-subtitle,
+  .entourage-category-note-readable {
+    font-size: 0.8rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

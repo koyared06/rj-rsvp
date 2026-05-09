@@ -57,6 +57,21 @@ type GalleryPhoto = {
   objectPosition?: string;
 };
 
+type EntourageMember = {
+  id: string;
+  fullName: string;
+  side: "bride" | "groom" | "none";
+  memberOrder: number;
+};
+
+type EntourageCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  members: EntourageMember[];
+};
+type EntourageMemberColumn = "left" | "right";
+
 const DEFAULT_WEDDING_TIME = "16:00";
 const DEFAULT_WEDDING_DATE = "2026-06-06";
 const MIN_DECLINED_GUEST_COUNT = 0;
@@ -191,6 +206,7 @@ export default function Home() {
   const [isNavbarVisible, setIsNavbarVisible] = useState(false);
   const [isGcashModalOpen, setIsGcashModalOpen] = useState(false);
   const [selectedGcashRecipient, setSelectedGcashRecipient] = useState<"groom" | "bride">("groom");
+  const [entourageCategories, setEntourageCategories] = useState<EntourageCategory[]>([]);
   const [activeGallerySlideIndex, setActiveGallerySlideIndex] = useState(0);
   const [activeFeaturedPhotoIndex, setActiveFeaturedPhotoIndex] = useState<number | null>(null);
   const isClientMounted = useSyncExternalStore(
@@ -305,6 +321,16 @@ export default function Home() {
     activeFeaturedPhotoIndex !== null
       ? GALLERY_FEATURED_PHOTOS[activeFeaturedPhotoIndex] ?? null
       : null;
+  const bestManIndex = entourageCategories.findIndex((item) => isBestManCategory(item));
+  const maidOfHonorIndex = entourageCategories.findIndex((item) => isMaidOfHonorCategory(item));
+  const hasCombinedHonorRoles = bestManIndex >= 0 && maidOfHonorIndex >= 0;
+  const firstCombinedHonorIndex = hasCombinedHonorRoles
+    ? Math.min(bestManIndex, maidOfHonorIndex)
+    : -1;
+  const bestManCategory =
+    hasCombinedHonorRoles && bestManIndex >= 0 ? entourageCategories[bestManIndex] : null;
+  const maidOfHonorCategory =
+    hasCombinedHonorRoles && maidOfHonorIndex >= 0 ? entourageCategories[maidOfHonorIndex] : null;
 
   const showPreviousGallerySlide = useCallback(() => {
     setActiveGallerySlideIndex((current) =>
@@ -409,6 +435,19 @@ export default function Home() {
     }
   }, []);
 
+  const loadEntourage = useCallback(async () => {
+    try {
+      const response = await fetch("/api/rsvp/entourage");
+      const payload = await response.json();
+      if (!response.ok) return;
+
+      const categories = Array.isArray(payload.categories) ? payload.categories : [];
+      setEntourageCategories(categories);
+    } catch {
+      // Best-effort fetch for display section.
+    }
+  }, []);
+
   useEffect(() => {
     if (accessCheckedRef.current) return;
     accessCheckedRef.current = true;
@@ -419,6 +458,7 @@ export default function Home() {
 
     const rafId = window.requestAnimationFrame(() => {
       void loadPublicSettings();
+      void loadEntourage();
       setInviteCode(invite);
       setInviteToken(token);
       if (!invite || !token) {
@@ -432,7 +472,7 @@ export default function Home() {
     });
 
     return () => window.cancelAnimationFrame(rafId);
-  }, [loadPublicSettings, validateAccess]);
+  }, [loadEntourage, loadPublicSettings, validateAccess]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -778,6 +818,165 @@ export default function Home() {
         <div className="mt-7 grid gap-6 md:grid-cols-2">
           <VenueMapCard ceremonyTimeLabel={ceremonyTimeLabel} />
           <ColorMotifCard />
+        </div>
+      </section>
+
+      <section
+        id="entourage"
+        data-scroll-animate="left"
+        className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6"
+      >
+        <div data-scroll-animate="pop" className="entourage-board mx-auto mt-2 max-w-4xl">
+          <div className="entourage-corner entourage-corner-top-left" aria-hidden="true" />
+          <div className="entourage-corner entourage-corner-bottom-right" aria-hidden="true" />
+
+          <header className="entourage-board-header">
+            <p className="entourage-board-title">Entourage</p>
+            <p className="entourage-board-subtitle">
+              With gratitude for the people walking with us on this special day
+            </p>
+          </header>
+
+          {entourageCategories.length === 0 ? (
+            <p className="py-6 text-center text-sm text-[var(--ink-soft)]">
+              Entourage details will be announced soon.
+            </p>
+          ) : (
+            <div className="space-y-8 pb-3">
+              {entourageCategories.map((category, index) => {
+                if (
+                  hasCombinedHonorRoles &&
+                  index === firstCombinedHonorIndex &&
+                  bestManCategory &&
+                  maidOfHonorCategory
+                ) {
+                  return (
+                    <article
+                      key={`honor-pair-${bestManCategory.id}-${maidOfHonorCategory.id}`}
+                      className="entourage-category-block entourage-category-block-narrow"
+                    >
+                      <p className="entourage-category-note entourage-category-note-readable">
+                        To assist us in our needs
+                      </p>
+                      <div className="entourage-honor-grid mt-3">
+                        <div className="entourage-honor-column">
+                          <h3 className="entourage-honor-title">Best Man</h3>
+                          {bestManCategory.members.length === 0 ? (
+                            <p className="mt-2 text-center text-sm italic text-[var(--ink-soft)]">
+                              To be announced
+                            </p>
+                          ) : (
+                            <ul className="entourage-honor-members">
+                              {bestManCategory.members.map((member) => (
+                                <li key={member.id} className="entourage-member-name">
+                                  {member.fullName}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div className="entourage-honor-column">
+                          <h3 className="entourage-honor-title">Maid of Honor</h3>
+                          {maidOfHonorCategory.members.length === 0 ? (
+                            <p className="mt-2 text-center text-sm italic text-[var(--ink-soft)]">
+                              To be announced
+                            </p>
+                          ) : (
+                            <ul className="entourage-honor-members">
+                              {maidOfHonorCategory.members.map((member) => (
+                                <li key={member.id} className="entourage-member-name">
+                                  {member.fullName}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                }
+
+                if (
+                  hasCombinedHonorRoles &&
+                  (isBestManCategory(category) || isMaidOfHonorCategory(category))
+                ) {
+                  return null;
+                }
+
+                const note = getEntourageCategoryNote(category);
+                const forceSingleColumnRole = isSingleColumnRoleCategory(category);
+                const useTwoColumns = shouldUseTwoColumnEntourage(category);
+                const enableSideAwareColumns = isSideAwareColumnCategory(category);
+                const sideAwareMembers = useTwoColumns
+                  ? getEntourageSideAwareMemberOrder(category.members)
+                  : null;
+                const useSideAwareColumns =
+                  enableSideAwareColumns &&
+                  Boolean(sideAwareMembers) &&
+                  sideAwareMembers!.length > 0;
+                const isPrimarySponsorsNote =
+                  note === "To stand as principal witnesses to our exchange of vows";
+                return (
+                  <article
+                    key={category.id}
+                    className={`entourage-category-block ${
+                      forceSingleColumnRole ? "entourage-category-block-narrow" : ""
+                    }`}
+                  >
+                    <h3 className="entourage-category-title">{category.name}</h3>
+                    {note ? (
+                      <p
+                        className={`entourage-category-note ${
+                          isPrimarySponsorsNote ? "entourage-category-note-readable" : ""
+                        }`}
+                      >
+                        {note}
+                      </p>
+                    ) : null}
+                    {category.members.length === 0 ? (
+                      <p className="mt-3 text-center text-sm italic text-[var(--ink-soft)]">
+                        To be announced
+                      </p>
+                    ) : useSideAwareColumns && sideAwareMembers ? (
+                      <ul className="entourage-member-grid-sideaware mt-3">
+                        {sideAwareMembers.map((entry) => (
+                          <li
+                            key={entry.member.id}
+                            className={`entourage-member-name ${
+                              entry.column === "left"
+                                ? "entourage-member-side-left"
+                                : "entourage-member-side-right"
+                            }`}
+                          >
+                            {entry.member.fullName}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <ul
+                        className={`mt-3 ${
+                          useTwoColumns
+                            ? "entourage-member-grid"
+                            : `entourage-member-stack ${
+                                forceSingleColumnRole ? "entourage-member-stack-narrow" : ""
+                              }`
+                        }`}
+                      >
+                        {category.members.map((member) => (
+                          <li
+                            key={member.id}
+                            className={`entourage-member-name ${useTwoColumns ? "entourage-member-cell" : ""}`}
+                          >
+                            {member.fullName}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -1327,28 +1526,6 @@ function SectionHeading({ title, subtitle }: { title: string; subtitle: string }
   );
 }
 
-function PlaceholderImageCard({
-  label,
-  note,
-  heightClassName,
-}: {
-  label: string;
-  note: string;
-  heightClassName: string;
-}) {
-  return (
-    <div
-      data-scroll-animate="pop"
-      className={`rounded-2xl border border-[var(--sand)] bg-[linear-gradient(135deg,rgba(251,245,236,0.78),rgba(233,218,198,0.62))] p-4 ${heightClassName}`}
-    >
-      <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-[var(--gold)]/60 bg-[color-mix(in_srgb,var(--surface-2)_70%,transparent)] px-4 text-center">
-        <p className="font-display text-2xl text-[var(--ink-deep)]">{label}</p>
-        <p className="mt-2 text-xs uppercase tracking-[0.13em] text-[var(--ink-soft)]">{note}</p>
-      </div>
-    </div>
-  );
-}
-
 function GalleryCarousel({
   photos,
   activeIndex,
@@ -1549,6 +1726,110 @@ function CountdownUnit({ label, value }: { label: string; value: number }) {
       </p>
       <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--ink-soft)]">{label}</p>
     </div>
+  );
+}
+
+function shouldUseTwoColumnEntourage(category: EntourageCategory) {
+  const key = `${category.slug} ${category.name}`.toLowerCase();
+  if (isSingleColumnRoleCategory(category)) {
+    return false;
+  }
+  if (category.members.length >= 4) return true;
+  return [
+    "sponsor",
+    "parent",
+    "principal",
+    "secondary",
+    "ninong",
+    "ninang",
+  ].some((token) => key.includes(token));
+}
+
+function getEntourageCategoryNote(category: EntourageCategory) {
+  const key = `${category.slug} ${category.name}`.toLowerCase();
+  if (key.includes("primary sponsor") || key.includes("principal sponsor")) {
+    return "To stand as principal witnesses to our exchange of vows";
+  }
+  if (key.includes("secondary sponsor")) {
+    return "To assist us in our needs";
+  }
+  if (key.includes("candle")) {
+    return "To light our path";
+  }
+  if (key.includes("veil")) {
+    return "To clothe us as one";
+  }
+  if (key.includes("cord")) {
+    return "To bind us together";
+  }
+  return "";
+}
+
+function isSingleColumnRoleCategory(category: EntourageCategory) {
+  const key = `${category.slug} ${category.name}`.toLowerCase();
+  return key.includes("best man") || key.includes("maid of honor");
+}
+
+function isBestManCategory(category: EntourageCategory) {
+  const key = `${category.slug} ${category.name}`.toLowerCase();
+  return key.includes("best man");
+}
+
+function isMaidOfHonorCategory(category: EntourageCategory) {
+  const key = `${category.slug} ${category.name}`.toLowerCase();
+  return key.includes("maid of honor");
+}
+
+function getEntourageSideAwareMemberOrder(members: EntourageMember[]) {
+  const left: EntourageMember[] = [];
+  const right: EntourageMember[] = [];
+  const unassigned: EntourageMember[] = [];
+
+  for (const member of members) {
+    if (member.side === "bride") {
+      left.push(member);
+      continue;
+    }
+    if (member.side === "groom") {
+      right.push(member);
+      continue;
+    }
+    unassigned.push(member);
+  }
+
+  for (const member of unassigned) {
+    if (left.length <= right.length) {
+      left.push(member);
+    } else {
+      right.push(member);
+    }
+  }
+
+  const ordered: Array<{ member: EntourageMember; column: EntourageMemberColumn }> = [];
+  const rowCount = Math.max(left.length, right.length);
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const leftMember = left[index];
+    const rightMember = right[index];
+
+    if (leftMember) {
+      ordered.push({ member: leftMember, column: "left" });
+    }
+    if (rightMember) {
+      ordered.push({ member: rightMember, column: "right" });
+    }
+  }
+
+  return ordered;
+}
+
+function isSideAwareColumnCategory(category: EntourageCategory) {
+  const key = `${category.slug} ${category.name}`.toLowerCase();
+  return (
+    key.includes("sponsor") ||
+    key.includes("ninong") ||
+    key.includes("ninang") ||
+    key.includes("principal")
   );
 }
 

@@ -5,6 +5,7 @@ import { getGuestsSheetName, getRsvpsSheetName } from "@/lib/env";
 import { updateWeddingDateSchema } from "@/lib/schemas";
 import { guestToArray, toGuestRow, toRsvpRow } from "@/lib/sheet-models";
 import { readRows, updateRow } from "@/lib/sheets";
+import { readEntourageSnapshot } from "@/lib/entourage";
 import {
   calculateCountdownDays,
   readWeddingSettings,
@@ -17,10 +18,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [guestRows, rsvpRows, weddingSettings] = await Promise.all([
+    const [guestRows, rsvpRows, weddingSettings, entourageSnapshot] = await Promise.all([
       readRows(`${getGuestsSheetName()}!A2:I`),
       readRows(`${getRsvpsSheetName()}!A2:K`),
       readWeddingSettings(),
+      readEntourageSnapshot(),
     ]);
 
     const guests = guestRows.map((row, index) => toGuestRow(row, index + 2));
@@ -58,6 +60,10 @@ export async function GET(request: NextRequest) {
       guests,
       rsvps,
       stats,
+      entourage: {
+        categories: entourageSnapshot.categories,
+        members: entourageSnapshot.members,
+      },
       settings: {
         weddingDate: weddingSettings.weddingDate,
         weddingTime: weddingSettings.weddingTime,

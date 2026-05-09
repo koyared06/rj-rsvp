@@ -30,3 +30,11 @@ export function getRsvpsSheetName() {
 export function getSettingsSheetName() {
   return process.env.GOOGLE_SHEETS_SETTINGS_TAB ?? "Settings";
 }
+
+export function getEntourageCategoriesSheetName() {
+  return process.env.GOOGLE_SHEETS_ENTOURAGE_CATEGORIES_TAB ?? "EntourageCategories";
+}
+
+export function getEntourageMembersSheetName() {
+  return process.env.GOOGLE_SHEETS_ENTOURAGE_MEMBERS_TAB ?? "EntourageMembers";
+}

@@ -9,6 +9,8 @@ Ito ang exact steps para ma-connect ang app sa Google account mo at magamit ang 
    - `Guests`
    - `RSVPs`
    - `Settings`
+   - `EntourageCategories`
+   - `EntourageMembers`
 3. Sa `Guests` tab, ilagay sa row 1 ang headers:
 
 ```text
@@ -29,6 +31,18 @@ key | value
 
 6. Copy mo ang spreadsheet ID from URL:
    - `https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit`
+
+7. Sa `EntourageCategories` tab, ilagay sa row 1 ang headers:
+
+```text
+id | name | slug | sortOrder | isVisible | createdAt | updatedAt
+```
+
+8. Sa `EntourageMembers` tab, ilagay sa row 1 ang headers:
+
+```text
+id | categoryId | fullName | side | memberOrder | isVisible | notes | createdAt | updatedAt
+```
 
 ## 2. Enable Google Sheets API
 
@@ -73,6 +87,8 @@ GOOGLE_SHEETS_SPREADSHEET_ID=your_spreadsheet_id
 GOOGLE_SHEETS_GUESTS_TAB=Guests
 GOOGLE_SHEETS_RSVPS_TAB=RSVPs
 GOOGLE_SHEETS_SETTINGS_TAB=Settings
+GOOGLE_SHEETS_ENTOURAGE_CATEGORIES_TAB=EntourageCategories
+GOOGLE_SHEETS_ENTOURAGE_MEMBERS_TAB=EntourageMembers
 ADMIN_TOKEN=your-strong-admin-token
 ```
 
@@ -94,6 +110,31 @@ Notes:
 - `id` can be any unique value sa seed rows. New guests from admin auto-generate UUID.
 - `inviteToken` can be blank for old rows. System auto-generates missing tokens after admin load.
 - `status` default should be `pending`.
+
+Optional entourage seed:
+
+`EntourageCategories`:
+
+```text
+cat_01 | Parents of the Bride | parents-of-the-bride | 10 | TRUE | 2026-05-09T00:00:00.000Z | 2026-05-09T00:00:00.000Z
+cat_02 | Parents of the Groom | parents-of-the-groom | 20 | TRUE | 2026-05-09T00:00:00.000Z | 2026-05-09T00:00:00.000Z
+cat_03 | Principal Sponsors | principal-sponsors | 30 | TRUE | 2026-05-09T00:00:00.000Z | 2026-05-09T00:00:00.000Z
+```
+
+`EntourageMembers`:
+
+```text
+mem_01 | cat_01 | Juan Dela Cruz | bride | 10 | TRUE |  | 2026-05-09T00:00:00.000Z | 2026-05-09T00:00:00.000Z
+mem_02 | cat_01 | Maria Dela Cruz | bride | 20 | TRUE |  | 2026-05-09T00:00:00.000Z | 2026-05-09T00:00:00.000Z
+```
+
+Entourage field notes:
+- `id`: unique stable id (recommended UUID style, never row number)
+- `categoryId`: must match an existing `EntourageCategories.id`
+- `slug`: lowercase with hyphen (example: `principal-sponsors`)
+- `side`: only `bride`, `groom`, or `none`
+- `sortOrder` and `memberOrder`: integer order values (10, 20, 30 recommended)
+- `isVisible`: `TRUE` or `FALSE`
 
 ## 7. Run Locally
 

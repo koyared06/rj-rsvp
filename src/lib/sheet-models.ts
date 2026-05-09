@@ -26,10 +26,51 @@ export type RsvpRow = {
   source: string;
 };
 
+export type EntourageSide = "bride" | "groom" | "none";
+
+export type EntourageCategoryRow = {
+  rowNumber: number;
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+  isVisible: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EntourageMemberRow = {
+  rowNumber: number;
+  id: string;
+  categoryId: string;
+  fullName: string;
+  side: EntourageSide;
+  memberOrder: number;
+  isVisible: boolean;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function normalizeNumber(value: string | undefined, fallback = 0) {
   if (!value) return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeBoolean(value: string | undefined, fallback = true) {
+  if (!value) return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "off"].includes(normalized)) return false;
+  return fallback;
+}
+
+function normalizeEntourageSide(value: string | undefined): EntourageSide {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (normalized === "bride") return "bride";
+  if (normalized === "groom") return "groom";
+  return "none";
 }
 
 function cell(row: string[], index: number) {
@@ -122,5 +163,69 @@ export function guestToArray(guest: Omit<GuestRow, "rowNumber">): string[] {
     guest.status,
     guest.lastUpdated,
     guest.notes,
+  ];
+}
+
+export function toEntourageCategoryRow(
+  row: string[],
+  rowNumber: number,
+): EntourageCategoryRow {
+  return {
+    rowNumber,
+    id: cell(row, 0),
+    name: cell(row, 1),
+    slug: cell(row, 2),
+    sortOrder: normalizeNumber(cell(row, 3), 0),
+    isVisible: normalizeBoolean(cell(row, 4), true),
+    createdAt: cell(row, 5),
+    updatedAt: cell(row, 6),
+  };
+}
+
+export function toEntourageMemberRow(
+  row: string[],
+  rowNumber: number,
+): EntourageMemberRow {
+  return {
+    rowNumber,
+    id: cell(row, 0),
+    categoryId: cell(row, 1),
+    fullName: cell(row, 2),
+    side: normalizeEntourageSide(cell(row, 3)),
+    memberOrder: normalizeNumber(cell(row, 4), 0),
+    isVisible: normalizeBoolean(cell(row, 5), true),
+    notes: cell(row, 6),
+    createdAt: cell(row, 7),
+    updatedAt: cell(row, 8),
+  };
+}
+
+export function entourageCategoryToArray(
+  category: Omit<EntourageCategoryRow, "rowNumber">,
+): string[] {
+  return [
+    category.id,
+    category.name,
+    category.slug,
+    String(category.sortOrder),
+    category.isVisible ? "TRUE" : "FALSE",
+    category.createdAt,
+    category.updatedAt,
+  ];
+}
+
+export function entourageMemberToArray(
+  member: Omit<EntourageMemberRow, "rowNumber">,
+): string[] {
+  return [
+    member.id,
+    member.categoryId,
+    member.fullName,
+    member.side,
+    String(member.memberOrder),
+    member.isVisible ? "TRUE" : "FALSE",
+    member.notes,
+    member.createdAt,
+    member.updatedAt,
   ];
 }
