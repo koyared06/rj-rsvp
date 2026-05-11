@@ -206,6 +206,28 @@ export default function AdminPage() {
       .reduce((sum, item) => sum + item.guestCount, 0);
   }, [dashboard]);
 
+  const inviteCapacity = useMemo(() => {
+    if (!dashboard) return 0;
+    return dashboard.guests.reduce((sum, guest) => sum + guest.maxGuests, 0);
+  }, [dashboard]);
+
+  const confirmedAttendeeCount = useMemo(() => {
+    if (!dashboard) return 0;
+    return dashboard.rsvps.filter((item) => item.attendance === "attending").length;
+  }, [dashboard]);
+
+  const companionsComing = useMemo(() => {
+    if (!dashboard) return 0;
+    return dashboard.rsvps
+      .filter((item) => item.attendance === "attending")
+      .reduce((sum, item) => sum + Math.max(item.guestCount - 1, 0), 0);
+  }, [dashboard]);
+
+  const capacityRemaining = useMemo(
+    () => inviteCapacity - attendingHeadCount,
+    [inviteCapacity, attendingHeadCount],
+  );
+
   const countdownSummary = useMemo(() => {
     if (!dashboard?.settings.weddingDate) {
       return "Wedding date is not set yet.";
@@ -1540,24 +1562,27 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
             </p>
           </section>
 
-          <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <StatCard
               label="Invited Guests"
               value={dashboard.stats.totalGuests}
+              description="Total number of invited records."
               tone="slate"
               active={activeTab === "guests" && guestStatusFilter === "all"}
               onClick={() => onStatCardClick("all")}
             />
             <StatCard
-              label="Pending"
-              value={dashboard.stats.pending}
-              tone="amber"
-              active={activeTab === "guests" && guestStatusFilter === "pending"}
-              onClick={() => onStatCardClick("pending")}
+              label="Invite Capacity"
+              value={inviteCapacity}
+              description="Maximum seats if all guests use full limits."
+              tone="sky"
+              active={activeTab === "guests" && guestStatusFilter === "all"}
+              onClick={() => onStatCardClick("all")}
             />
             <StatCard
-              label="Attending"
-              value={dashboard.stats.attending}
+              label="Confirmed Attendees"
+              value={confirmedAttendeeCount}
+              description="Number of RSVPs marked as attending."
               tone="emerald"
               active={
                 (activeTab === "guests" && guestStatusFilter === "attending") ||
@@ -1566,19 +1591,26 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               onClick={() => onStatCardClick("attending")}
             />
             <StatCard
-              label="Declined"
-              value={dashboard.stats.declined}
-              tone="rose"
-              active={
-                (activeTab === "guests" && guestStatusFilter === "declined") ||
-                (activeTab === "rsvps" && rsvpStatusFilter === "declined")
-              }
-              onClick={() => onStatCardClick("declined")}
+              label="Confirmed Headcount"
+              value={attendingHeadCount}
+              description="Total people coming (main guests + companions)."
+              tone="emerald"
+              active={activeTab === "rsvps" && rsvpStatusFilter === "attending"}
+              onClick={() => onStatCardClick("headcount")}
             />
             <StatCard
-              label="Headcount"
-              value={attendingHeadCount}
-              tone="sky"
+              label="Companions Coming"
+              value={companionsComing}
+              description="Companions only, excluding the primary guest."
+              tone="amber"
+              active={activeTab === "rsvps" && rsvpStatusFilter === "attending"}
+              onClick={() => onStatCardClick("headcount")}
+            />
+            <StatCard
+              label="Capacity Remaining"
+              value={capacityRemaining}
+              description="Unused slots: invite capacity minus confirmed headcount."
+              tone="rose"
               active={activeTab === "rsvps" && rsvpStatusFilter === "attending"}
               onClick={() => onStatCardClick("headcount")}
             />
@@ -2665,12 +2697,14 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
 function StatCard({
   label,
   value,
+  description,
   tone,
   active,
   onClick,
 }: {
   label: string;
   value: number;
+  description?: string;
   tone: "slate" | "amber" | "emerald" | "rose" | "sky";
   active?: boolean;
   onClick?: () => void;
@@ -2687,12 +2721,17 @@ function StatCard({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border p-4 text-left transition hover:shadow-sm ${tones[tone]} ${
+      className={`min-h-[164px] rounded-xl border p-5 text-left transition hover:shadow-sm ${tones[tone]} ${
         active ? "ring-2 ring-[var(--accent)]" : ""
       }`}
     >
-      <p className="text-sm text-[var(--ink-soft)]">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-[var(--ink-deep)]">{value}</p>
+      <p className="text-sm leading-snug text-[var(--ink-soft)]">{label}</p>
+      <p className="mt-2 text-4xl font-semibold leading-none text-[var(--ink-deep)]">{value}</p>
+      {description ? (
+        <p className="mt-3 text-xs leading-5 text-[color-mix(in_srgb,var(--ink-soft)_86%,var(--foreground)_14%)]">
+          {description}
+        </p>
+      ) : null}
     </button>
   );
 }
