@@ -106,7 +106,7 @@ export default function RingScrollIntro({
     const nextBlendOpacity = clamp((progress - 0.72) / 0.2, 0, 1);
     const nextCanvasOpacity = 1 - clamp((progress - 0.84) / 0.16, 0, 1);
     const nextTextOpacity = 1 - clamp((progress - 0.68) / 0.18, 0, 1);
-    const shouldShowScrollCue = progress < 0.055 && shouldShowOverlay;
+    const shouldShowScrollCue = window.scrollY < 24 && shouldShowOverlay;
 
     if (overlayVisibleRef.current !== shouldShowOverlay) {
       overlayVisibleRef.current = shouldShowOverlay;

@@ -234,20 +234,9 @@ body {
 }
 
 .ring-intro-scroll-cue {
-  padding: 0.38rem 0.9rem 0.48rem;
-  border: 1px solid rgba(255, 246, 239, 0.32);
-  border-radius: 999px;
-  background: linear-gradient(
-    180deg,
-    rgba(30, 19, 16, 0.22),
-    rgba(30, 19, 16, 0.08)
-  );
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   text-shadow:
     0 2px 10px rgba(14, 9, 8, 0.5),
     0 0 1px rgba(255, 246, 239, 0.55);
-  animation: cueAttention 2.2s ease-in-out infinite;
 }
 
 .ring-intro-scroll-cue-chevron {
@@ -322,20 +311,6 @@ body {
   }
   50% {
     transform: translateY(5px);
-  }
-}
-
-@keyframes cueAttention {
-  0%,
-  100% {
-    opacity: 0.85;
-    box-shadow: 0 0 0 rgba(255, 239, 219, 0);
-    transform: translateY(0);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 20px rgba(255, 239, 219, 0.22);
-    transform: translateY(-2px);
   }
 }
 
@@ -672,7 +647,6 @@ body {
   .ring-intro-couple,
   .ring-intro-date,
   .ring-intro-time,
-  .ring-intro-scroll-cue,
   .scroll-animate-ready {
     animation: none !important;
     opacity: 1 !important;
