@@ -49,11 +49,13 @@ export default function RingScrollIntro({
   const activeFrameRef = useRef(-1);
   const activeParallaxOffsetRef = useRef(Number.NaN);
   const overlayVisibleRef = useRef(true);
+  const scrollCueVisibleRef = useRef(true);
   const blendOpacityRef = useRef(0);
   const canvasOpacityRef = useRef(1);
   const textOpacityRef = useRef(1);
   const isReducedMotionRef = useRef(false);
   const [showOverlay, setShowOverlay] = useState(true);
+  const [showScrollCue, setShowScrollCue] = useState(true);
   const [blendOpacity, setBlendOpacity] = useState(0);
   const [canvasOpacity, setCanvasOpacity] = useState(1);
   const [textOpacity, setTextOpacity] = useState(1);
@@ -104,11 +106,17 @@ export default function RingScrollIntro({
     const nextBlendOpacity = clamp((progress - 0.72) / 0.2, 0, 1);
     const nextCanvasOpacity = 1 - clamp((progress - 0.84) / 0.16, 0, 1);
     const nextTextOpacity = 1 - clamp((progress - 0.68) / 0.18, 0, 1);
+    const shouldShowScrollCue = progress < 0.055 && shouldShowOverlay;
 
     if (overlayVisibleRef.current !== shouldShowOverlay) {
       overlayVisibleRef.current = shouldShowOverlay;
       setShowOverlay(shouldShowOverlay);
       emitOverlayVisibility(shouldShowOverlay);
+    }
+
+    if (scrollCueVisibleRef.current !== shouldShowScrollCue) {
+      scrollCueVisibleRef.current = shouldShowScrollCue;
+      setShowScrollCue(shouldShowScrollCue);
     }
 
     if (Math.abs(nextBlendOpacity - blendOpacityRef.current) >= 0.02) {
@@ -268,6 +276,32 @@ export default function RingScrollIntro({
               {weddingTimeLabel} Ceremony
             </p>
           </div>
+        </div>
+        <div
+          className={`ring-intro-scroll-cue absolute inset-x-0 bottom-8 flex flex-col items-center gap-1 text-[#fff6ef] transition-opacity duration-500 sm:bottom-10 ${
+            showScrollCue ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <p className="text-[10px] uppercase tracking-[0.22em] sm:text-xs">
+            Scroll down to see more
+          </p>
+          <span aria-hidden="true" className="ring-intro-scroll-cue-chevron">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M6 9L12 15L18 9"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
         </div>
       </div>
     </>
