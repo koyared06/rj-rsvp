@@ -278,8 +278,6 @@ export default function AdminPage() {
         rsvp.inviteCode,
         rsvp.email,
         rsvp.companionNames,
-        rsvp.dietaryRestrictions,
-        rsvp.songRequest,
         rsvp.message,
       ]
         .join(" ")
@@ -1830,7 +1828,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
                   <input
                     className="rounded-lg border border-[var(--border)] px-3 py-2"
-                    placeholder="Search name, code, companions, dietary, song, message"
+                    placeholder="Search name, code, companions, message"
                     value={rsvpSearch}
                     onChange={(event) => {
                       setRsvpSearch(event.target.value);
@@ -1884,10 +1882,6 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                         <p className="mt-1 text-xs text-[var(--ink-soft)]">
                           Companions: {rsvp.companionNames || "-"}
                         </p>
-                        <p className="mt-1 text-xs text-[var(--ink-soft)]">
-                          Dietary: {rsvp.dietaryRestrictions || "-"}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--ink-soft)]">Song: {rsvp.songRequest || "-"}</p>
                         <p className="mt-1 text-xs text-[var(--ink-soft)]">Message: {rsvp.message || "-"}</p>
                         <p className="mt-2 text-[11px] text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">
                           Submitted: {formatTimestamp(rsvp.timestamp)}
@@ -1922,8 +1916,6 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                           </button>
                         </th>
                         <th className="p-2">Companions</th>
-                        <th className="p-2">Dietary</th>
-                        <th className="p-2">Song</th>
                         <th className="p-2">Message</th>
                       </tr>
                     </thead>
@@ -1947,8 +1939,6 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                             </td>
                             <td className="p-2">{rsvp.guestCount}</td>
                             <td className="p-2">{rsvp.companionNames || "-"}</td>
-                            <td className="p-2">{rsvp.dietaryRestrictions || "-"}</td>
-                            <td className="p-2">{rsvp.songRequest || "-"}</td>
                             <td className="p-2">{rsvp.message || "-"}</td>
                           </tr>
                         ))
