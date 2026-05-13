@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 
 type CameraSessionSettings = {
   cameraEnabled: boolean;
@@ -115,8 +116,12 @@ export default function CameraLandingPage() {
   const [loading, setLoading] = useState(true);
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [showQrSheet, setShowQrSheet] = useState(false);
+  const [qrImageDataUrl, setQrImageDataUrl] = useState("");
+  const [qrRendering, setQrRendering] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -126,6 +131,13 @@ export default function CameraLandingPage() {
     usage.shotsLimit <= 0 || usage.shotsLeft === null || usage.shotsLeft > 0;
   const showLandingFirst = settings.cameraLandingEnabled;
   const showLandingScreen = showLandingFirst && !started;
+  const shareableCameraUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    if (!eventId || !cameraToken) return "";
+    const base = window.location.origin;
+    const params = new URLSearchParams({ e: eventId, t: cameraToken });
+    return `${base}/cam?${params.toString()}`;
+  }, [cameraToken, eventId]);
   const previewUrl = useMemo(
     () => (selectedFile ? URL.createObjectURL(selectedFile) : ""),
     [selectedFile],
@@ -372,6 +384,54 @@ export default function CameraLandingPage() {
     setFeedback("Processing shot...");
     await uploadPhoto(pendingShotFile);
     setPendingShotFile(null);
+  }
+
+  async function openQrSheet() {
+    if (!shareableCameraUrl) {
+      setFeedback("Missing camera share link.");
+      return;
+    }
+    setShowQrSheet(true);
+    if (qrImageDataUrl || qrRendering) return;
+
+    setQrRendering(true);
+    try {
+      const dataUrl = await QRCode.toDataURL(shareableCameraUrl, {
+        width: 520,
+        margin: 1,
+      });
+      setQrImageDataUrl(dataUrl);
+    } catch {
+      setFeedback("Unable to render QR code right now.");
+    } finally {
+      setQrRendering(false);
+    }
+  }
+
+  async function shareCameraLink() {
+    if (!shareableCameraUrl) {
+      setFeedback("Missing camera share link.");
+      return;
+    }
+
+    try {
+      setSharing(true);
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({
+          title: settings.cameraEventTitle,
+          text: `Join ${settings.cameraEventTitle} camera`,
+          url: shareableCameraUrl,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareableCameraUrl);
+      setFeedback("Camera link copied. You can paste and share it.");
+    } catch {
+      setFeedback("Sharing cancelled or not available on this device.");
+    } finally {
+      setSharing(false);
+    }
   }
 
   useEffect(() => {
@@ -640,6 +700,54 @@ export default function CameraLandingPage() {
               </div>
             ) : null}
 
+            {showQrSheet ? (
+              <div className="absolute inset-0 z-30 flex items-end bg-black/50 p-3">
+                <div className="w-full rounded-3xl border border-white/20 bg-[#2c2940] p-4 shadow-2xl backdrop-blur-sm">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white"
+                      onClick={() => setShowQrSheet(false)}
+                    >
+                      Close
+                    </button>
+                    <p className="text-sm font-semibold text-white">Share QR Code</p>
+                    <div className="w-12" />
+                  </div>
+                  <p className="mt-2 text-center text-xs text-white/75">
+                    Anyone can join this camera by scanning this QR code.
+                  </p>
+
+                  <div className="mt-4 rounded-2xl border border-white/20 bg-white/95 p-4">
+                    {qrRendering ? (
+                      <div className="flex h-56 items-center justify-center text-sm text-black/70">
+                        Rendering QR...
+                      </div>
+                    ) : qrImageDataUrl ? (
+                      <img
+                        src={qrImageDataUrl}
+                        alt="Guest camera QR code"
+                        className="mx-auto h-56 w-56 rounded-xl object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-56 items-center justify-center text-sm text-black/70">
+                        QR unavailable.
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="mt-4 w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"
+                    onClick={() => void shareCameraLink()}
+                    disabled={sharing || !shareableCameraUrl}
+                  >
+                    {sharing ? "Sharing..." : "Share Link"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             {!cameraOpen ? (
               <div className="absolute inset-x-0 bottom-24 z-10 px-6">
                 <button
@@ -740,6 +848,36 @@ export default function CameraLandingPage() {
               {feedback}
             </p>
           ) : null}
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white"
+              onClick={() => void openQrSheet()}
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                <path
+                  d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm13 2h2v2h-2v-2zm-2-2h2v2h-2v-2zm4 4h2v2h-2v-2zm-4 2h2v2h-2v-2zm4-10h3v3h-3v-3z"
+                  fill="currentColor"
+                />
+              </svg>
+              QR
+            </button>
+            <button
+              type="button"
+              className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-40"
+              onClick={() => void shareCameraLink()}
+              disabled={sharing}
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                <path
+                  d="M14 3l7 7-7 7-1.4-1.4 4.6-4.6H8a5 5 0 000 10h3v2H8a7 7 0 010-14h9.2l-4.6-4.6L14 3z"
+                  fill="currentColor"
+                />
+              </svg>
+              Share
+            </button>
+          </div>
 
           <button
             type="button"
