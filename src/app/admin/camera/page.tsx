@@ -70,6 +70,8 @@ export default function CameraAdminPage() {
   const [qrGenerating, setQrGenerating] = useState(false);
   const [qrUrl, setQrUrl] = useState("");
   const [qrImageDataUrl, setQrImageDataUrl] = useState("");
+  const [healthChecking, setHealthChecking] = useState(false);
+  const [healthReportJson, setHealthReportJson] = useState("");
   const [settings, setSettings] = useState<CameraSettings>({
     cameraEnabled: false,
     cameraRequireApproval: false,
@@ -399,6 +401,37 @@ export default function CameraAdminPage() {
     }
   }
 
+  async function runCameraHealthCheck() {
+    if (!token) return;
+    setHealthChecking(true);
+    try {
+      const response = await fetch("/api/admin/camera/health", {
+        headers: {
+          "x-admin-token": token,
+        },
+      });
+      const payload = await response.json();
+      setHealthReportJson(JSON.stringify(payload, null, 2));
+
+      if (!response.ok || !payload.ok) {
+        toast.error("Health check found issues", {
+          description: "Open the diagnostics panel below for exact failing checks.",
+        });
+        return;
+      }
+
+      toast.success("Health check passed", {
+        description: "Drive + Sheets + env checks are all healthy.",
+      });
+    } catch {
+      toast.error("Network error", {
+        description: "Unable to run camera health check right now.",
+      });
+    } finally {
+      setHealthChecking(false);
+    }
+  }
+
   useEffect(() => {
     const stored = readStoredAdminSession();
     if (!stored) return;
@@ -488,6 +521,32 @@ export default function CameraAdminPage() {
             <StatCard label="Approved" value={approvedCount} />
             <StatCard label="Hidden" value={hiddenCount} />
             <StatCard label="Rejected" value={rejectedCount} />
+          </section>
+
+          <section className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--ink-deep)]">
+                  Camera Diagnostics
+                </h2>
+                <p className="text-xs text-[var(--ink-soft)]">
+                  Run this when uploads fail in Vercel preview. It checks env, Drive access, and Sheets access.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-lg bg-[var(--ink-deep)] px-4 py-2 text-sm text-[var(--background)] disabled:opacity-50"
+                onClick={() => void runCameraHealthCheck()}
+                disabled={healthChecking}
+              >
+                {healthChecking ? "Checking..." : "Run Health Check"}
+              </button>
+            </div>
+            {healthReportJson ? (
+              <pre className="mt-3 max-h-80 overflow-auto rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3 text-xs text-[var(--ink-deep)]">
+                {healthReportJson}
+              </pre>
+            ) : null}
           </section>
 
           <section className="mt-6 rounded-2xl border border-[var(--info-border)] bg-[var(--info-soft)] p-4">
