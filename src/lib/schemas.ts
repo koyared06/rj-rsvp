@@ -65,6 +65,33 @@ export const updateWeddingDateSchema = z.object({
     .or(z.literal(""))
     .optional(),
   showCountdown: z.boolean().optional(),
+  cameraEnabled: z.boolean().optional(),
+  cameraRequireApproval: z.boolean().optional(),
+  cameraGalleryUnlockDate: z
+    .string()
+    .trim()
+    .regex(
+      /^\d{4}-\d{2}-\d{2}$/,
+      "Camera gallery unlock date must be in YYYY-MM-DD format.",
+    )
+    .or(z.literal(""))
+    .optional(),
+  cameraGalleryUnlockTime: z
+    .string()
+    .trim()
+    .regex(
+      /^([01]\d|2[0-3]):[0-5]\d$/,
+      "Camera gallery unlock time must be in HH:mm format.",
+    )
+    .or(z.literal(""))
+    .optional(),
+  cameraMaxUploadMb: z.coerce.number().int().min(0).max(100).optional(),
+  cameraShotLimitPerInvite: z.coerce.number().int().min(0).max(500).optional(),
+  cameraLandingEnabled: z.boolean().optional(),
+  cameraEventTitle: z.string().trim().max(120).optional().or(z.literal("")),
+  cameraEventSubtitle: z.string().trim().max(240).optional().or(z.literal("")),
+  cameraCoverImageUrl: z.string().trim().url().optional().or(z.literal("")),
+  cameraStartButtonLabel: z.string().trim().max(40).optional().or(z.literal("")),
 });
 
 const entourageSlugSchema = z
@@ -117,4 +144,19 @@ export const updateEntourageMemberSchema = z.object({
 
 export const deleteEntourageMemberSchema = z.object({
   id: z.string().trim().min(1),
+});
+
+export const cameraUploadMetaSchema = z.object({
+  inviteCode: z.string().trim().min(1).optional().or(z.literal("")),
+  inviteToken: z.string().trim().min(8).optional().or(z.literal("")),
+  eventId: z.string().trim().min(1).max(60).optional().or(z.literal("")),
+  cameraToken: z.string().trim().min(20).optional().or(z.literal("")),
+  deviceId: z.string().trim().min(8).max(120).optional().or(z.literal("")),
+  uploaderName: z.string().trim().min(2).max(120).optional().or(z.literal("")),
+});
+
+export const cameraModerationSchema = z.object({
+  id: z.string().trim().min(1),
+  action: z.enum(["approve", "hide", "reject"]),
+  rejectionReason: z.string().trim().max(250).optional().or(z.literal("")),
 });

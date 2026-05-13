@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import Image from "next/image";
+import Link from "next/link";
 import JSZip from "jszip";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -60,6 +61,17 @@ type EntourageMemberRow = {
   updatedAt: string;
 };
 
+type CameraPhotoItem = {
+  id: string;
+  createdAt: string;
+  inviteCode: string;
+  uploaderName: string;
+  status: "pending" | "approved" | "hidden" | "rejected" | string;
+  isOwnPhoto: boolean;
+  visibilityAt: string;
+  imageUrl: string;
+};
+
 type DashboardResponse = {
   guests: GuestRow[];
   rsvps: RsvpRow[];
@@ -78,6 +90,12 @@ type DashboardResponse = {
     weddingDate: string;
     weddingTime: string;
     showCountdown: boolean;
+    cameraEnabled: boolean;
+    cameraRequireApproval: boolean;
+    cameraGalleryUnlockDate: string;
+    cameraGalleryUnlockTime: string;
+    cameraMaxUploadMb: number;
+    cameraShotLimitPerInvite: number;
     countdownDays: number | null;
   };
 };
@@ -142,6 +160,16 @@ export default function AdminPage() {
   const [weddingTimeInput, setWeddingTimeInput] = useState(DEFAULT_WEDDING_TIME);
   const [showCountdownInput, setShowCountdownInput] = useState(true);
   const [countdownSettingsDirty, setCountdownSettingsDirty] = useState(false);
+  const [cameraEnabledInput, setCameraEnabledInput] = useState(false);
+  const [cameraRequireApprovalInput, setCameraRequireApprovalInput] = useState(false);
+  const [cameraGalleryUnlockDateInput, setCameraGalleryUnlockDateInput] = useState("");
+  const [cameraGalleryUnlockTimeInput, setCameraGalleryUnlockTimeInput] = useState("");
+  const [cameraMaxUploadMbInput, setCameraMaxUploadMbInput] = useState("3");
+  const [cameraShotLimitPerInviteInput, setCameraShotLimitPerInviteInput] = useState("27");
+  const [cameraSettingsDirty, setCameraSettingsDirty] = useState(false);
+  const [cameraPhotos, setCameraPhotos] = useState<CameraPhotoItem[]>([]);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraActionLoadingId, setCameraActionLoadingId] = useState("");
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -156,7 +184,7 @@ export default function AdminPage() {
   const [qrGuest, setQrGuest] = useState<GuestRow | null>(null);
   const [qrImageDataUrl, setQrImageDataUrl] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"guests" | "rsvps" | "entourage">("guests");
+  const [activeTab, setActiveTab] = useState<"guests" | "rsvps" | "entourage" | "camera">("guests");
   const [activeEntourageTab, setActiveEntourageTab] = useState<"categories" | "members">(
     "categories",
   );
@@ -249,6 +277,21 @@ export default function AdminPage() {
   const countdownVisibilitySummary = useMemo(
     () => (dashboard?.settings.showCountdown ? "Visible on RSVP page" : "Hidden on RSVP page"),
     [dashboard],
+  );
+
+  const cameraPendingCount = useMemo(
+    () => cameraPhotos.filter((photo) => photo.status === "pending").length,
+    [cameraPhotos],
+  );
+
+  const cameraApprovedCount = useMemo(
+    () => cameraPhotos.filter((photo) => photo.status === "approved").length,
+    [cameraPhotos],
+  );
+
+  const cameraHiddenCount = useMemo(
+    () => cameraPhotos.filter((photo) => photo.status === "hidden").length,
+    [cameraPhotos],
   );
 
   const filteredGuests = useMemo(() => {
@@ -409,6 +452,44 @@ export default function AdminPage() {
     return index >= 0 && index < ids.length - 1;
   };
 
+  const loadCameraPhotos = useCallback(async (
+    adminToken: string,
+    options?: { silent?: boolean },
+  ) => {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setCameraLoading(true);
+    }
+
+    try {
+      const response = await fetch("/api/camera/list", {
+        headers: { "x-admin-token": adminToken },
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        if (!silent) {
+          toast.error("Camera load failed", {
+            description: payload.error ?? "Unable to load camera uploads.",
+          });
+        }
+        return;
+      }
+
+      setCameraPhotos(Array.isArray(payload.items) ? payload.items : []);
+    } catch {
+      if (!silent) {
+        toast.error("Network error", {
+          description: "Unable to load camera uploads right now.",
+        });
+      }
+    } finally {
+      if (!silent) {
+        setCameraLoading(false);
+      }
+    }
+  }, []);
+
   const loadDashboard = useCallback(async (
     adminToken: string,
     options?: { silent?: boolean; skipSuccessFeedback?: boolean },
@@ -467,6 +548,16 @@ export default function AdminPage() {
             : true,
         );
       }
+      if (!cameraSettingsDirty) {
+        setCameraEnabledInput(Boolean(payload.settings?.cameraEnabled));
+        setCameraRequireApprovalInput(Boolean(payload.settings?.cameraRequireApproval));
+        setCameraGalleryUnlockDateInput(payload.settings?.cameraGalleryUnlockDate ?? "");
+        setCameraGalleryUnlockTimeInput(payload.settings?.cameraGalleryUnlockTime ?? "");
+        setCameraMaxUploadMbInput(String(payload.settings?.cameraMaxUploadMb ?? 3));
+        setCameraShotLimitPerInviteInput(
+          String(payload.settings?.cameraShotLimitPerInvite ?? 27),
+        );
+      }
 
       if (!skipSuccessFeedback && !silent) {
         setFeedback("");
@@ -476,6 +567,7 @@ export default function AdminPage() {
       }
 
       writeStoredAdminSession(adminToken);
+      void loadCameraPhotos(adminToken, { silent: true });
     } catch (error) {
       if (!silent) {
         setConnected(false);
@@ -491,7 +583,7 @@ export default function AdminPage() {
         setLoading(false);
       }
     }
-  }, [countdownSettingsDirty]);
+  }, [cameraSettingsDirty, countdownSettingsDirty, loadCameraPhotos]);
 
   async function onConnect(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -503,6 +595,7 @@ export default function AdminPage() {
     setToken("");
     setConnected(false);
     setDashboard(null);
+    setCameraPhotos([]);
     setFeedback("Disconnected from admin session.");
     toast("Disconnected", { description: "Admin session cleared for this browser tab." });
   }
@@ -511,6 +604,8 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const authToken = token;
     if (!authToken) return;
+    const parsedCameraMaxUploadMb = Number.parseInt(cameraMaxUploadMbInput, 10);
+    const parsedCameraShotLimit = Number.parseInt(cameraShotLimitPerInviteInput, 10);
 
     setSettingsSaving(true);
     try {
@@ -524,6 +619,15 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
           weddingDate: weddingDateInput.trim(),
           weddingTime: weddingTimeInput.trim(),
           showCountdown: showCountdownInput,
+          cameraEnabled: cameraEnabledInput,
+          cameraRequireApproval: cameraRequireApprovalInput,
+          cameraGalleryUnlockDate: cameraGalleryUnlockDateInput.trim(),
+          cameraGalleryUnlockTime: cameraGalleryUnlockTimeInput.trim(),
+          cameraMaxUploadMb: Number.isNaN(parsedCameraMaxUploadMb)
+            ? 3
+            : parsedCameraMaxUploadMb,
+          cameraShotLimitPerInvite:
+            Number.isNaN(parsedCameraShotLimit) ? 27 : parsedCameraShotLimit,
         }),
       });
 
@@ -536,12 +640,21 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
       }
 
       setCountdownSettingsDirty(false);
+      setCameraSettingsDirty(false);
       setWeddingDateInput(payload.settings?.weddingDate ?? "");
       setWeddingTimeInput(payload.settings?.weddingTime ?? DEFAULT_WEDDING_TIME);
       setShowCountdownInput(
         typeof payload.settings?.showCountdown === "boolean"
           ? payload.settings.showCountdown
           : true,
+      );
+      setCameraEnabledInput(Boolean(payload.settings?.cameraEnabled));
+      setCameraRequireApprovalInput(Boolean(payload.settings?.cameraRequireApproval));
+      setCameraGalleryUnlockDateInput(payload.settings?.cameraGalleryUnlockDate ?? "");
+      setCameraGalleryUnlockTimeInput(payload.settings?.cameraGalleryUnlockTime ?? "");
+      setCameraMaxUploadMbInput(String(payload.settings?.cameraMaxUploadMb ?? 3));
+      setCameraShotLimitPerInviteInput(
+        String(payload.settings?.cameraShotLimitPerInvite ?? 27),
       );
       setDashboard((current) => {
         if (!current) return current;
@@ -551,9 +664,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
         };
       });
       toast.success("Wedding countdown updated", {
-        description: showCountdownInput
-          ? "Countdown settings saved and visible on RSVP page."
-          : "Countdown settings saved and hidden on RSVP page.",
+        description: "Countdown and camera settings were saved successfully.",
       });
     } catch {
       toast.error("Network error", {
@@ -561,6 +672,55 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
       });
     } finally {
       setSettingsSaving(false);
+    }
+  }
+
+  async function onModerateCameraPhoto(
+    id: string,
+    action: "approve" | "hide" | "reject",
+  ) {
+    const authToken = token;
+    if (!authToken) return;
+
+    const rejectionReason =
+      action === "reject"
+        ? window.prompt("Optional rejection reason:", "") ?? ""
+        : "";
+
+    setCameraActionLoadingId(id);
+    try {
+      const response = await fetch("/api/admin/camera/photo", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-token": authToken,
+        },
+        body: JSON.stringify({
+          id,
+          action,
+          rejectionReason,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        const details = payload.details ? ` (${payload.details})` : "";
+        toast.error("Camera moderation failed", {
+          description: `${payload.error ?? "Unable to update camera photo."}${details}`,
+        });
+        return;
+      }
+
+      toast.success("Camera photo updated", {
+        description: `Photo status is now ${payload.photo?.status ?? action}.`,
+      });
+      await loadCameraPhotos(authToken);
+    } catch {
+      toast.error("Network error", {
+        description: "Unable to update camera photo right now.",
+      });
+    } finally {
+      setCameraActionLoadingId("");
     }
   }
 
@@ -1438,6 +1598,14 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
           <p className="mt-2 text-sm text-[var(--ink-soft)]">
             Google Sheets-backed guest management for Red & Jess RSVP.
           </p>
+          <div className="mt-2">
+            <Link
+              href="/admin/camera"
+              className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--ink-soft)] hover:bg-[var(--surface-2)]"
+            >
+              Open Dedicated Camera Studio
+            </Link>
+          </div>
           <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">Dashboard auto-refreshes every 10 seconds.</p>
         </div>
         <ThemeToggle />
@@ -1511,7 +1679,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
             </div>
             <form
               onSubmit={onSaveWeddingDate}
-              className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,220px)_minmax(0,180px)_minmax(0,1fr)_auto]"
+              className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
             >
               <label className="flex w-full flex-col gap-1 text-sm text-[var(--info-text)]">
                 <span>Wedding Date</span>
@@ -1549,16 +1717,28 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 />
                 <span>Show countdown on RSVP page</span>
               </label>
+              <div className="rounded-lg border border-[var(--info-border)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--info-text)] md:col-span-2 xl:col-span-3">
+                <p className="font-medium">Camera settings moved to dedicated page.</p>
+                <p className="mt-1 text-xs">
+                  Manage QR camera access, shot limits, and moderation in Camera Studio.
+                </p>
+                <Link
+                  href="/admin/camera"
+                  className="mt-2 inline-flex rounded-full border border-[var(--info-border)] bg-[var(--surface-2)] px-3 py-1 text-xs hover:bg-[var(--surface)]"
+                >
+                  Open Camera Studio
+                </Link>
+              </div>
               <button
                 type="submit"
-	                className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-[var(--background)] disabled:opacity-50 md:col-span-2 lg:col-span-1"
+	                className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-[var(--background)] disabled:opacity-50 md:col-span-2 xl:col-span-3"
                 disabled={settingsSaving || loading}
               >
                 {settingsSaving ? "Saving..." : "Save Countdown Settings"}
               </button>
             </form>
             <p className="mt-2 text-xs text-[var(--info-text)]">
-              Use the toggle if you want to hide the countdown card without removing date/time.
+              Camera controls are now available in the dedicated Camera Studio page.
             </p>
           </section>
 
@@ -1646,7 +1826,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-2 rounded-xl bg-[var(--surface-2)] p-1 sm:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-2 rounded-xl bg-[var(--surface-2)] p-1 sm:grid-cols-4">
               <button
                 type="button"
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
@@ -1985,7 +2165,7 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                   onPageChange={setRsvpPage}
                 />
               </>
-            ) : (
+            ) : activeTab === "entourage" ? (
               <>
                 <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-1 sm:w-fit">
                   <div className="grid grid-cols-2 gap-1">
@@ -2217,6 +2397,100 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                     </div>
                   </>
                 )}
+              </>
+            ) : (
+              <>
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                    <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">Pending</p>
+                    <p className="mt-1 text-2xl font-semibold text-[var(--ink-deep)]">{cameraPendingCount}</p>
+                  </div>
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                    <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">Approved</p>
+                    <p className="mt-1 text-2xl font-semibold text-[var(--ink-deep)]">{cameraApprovedCount}</p>
+                  </div>
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                    <p className="text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">Hidden</p>
+                    <p className="mt-1 text-2xl font-semibold text-[var(--ink-deep)]">{cameraHiddenCount}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                  <p className="text-sm text-[var(--ink-soft)]">
+                    Review guest uploads and moderate visibility.
+                  </p>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
+                    onClick={() => void loadCameraPhotos(token)}
+                    disabled={cameraLoading || !token}
+                  >
+                    {cameraLoading ? "Refreshing..." : "Refresh Camera Uploads"}
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {cameraPhotos.length === 0 ? (
+                    <div className="sm:col-span-2 xl:col-span-3">
+                      <EmptyState label="No camera uploads yet." />
+                    </div>
+                  ) : (
+                    cameraPhotos.map((photo) => (
+                      <article
+                        key={photo.id}
+                        className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]"
+                      >
+                        <img
+                          src={photo.imageUrl}
+                          alt={`Camera upload by ${photo.uploaderName}`}
+                          className="h-48 w-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="space-y-1 px-3 py-3">
+                          <p className="font-semibold text-[var(--ink-deep)]">{photo.uploaderName}</p>
+                          <p className="text-xs text-[var(--ink-soft)]">Invite: {photo.inviteCode}</p>
+                          <p className="text-xs text-[var(--ink-soft)]">
+                            Uploaded: {formatTimestamp(photo.createdAt)}
+                          </p>
+                          <p className="text-xs text-[var(--ink-soft)]">
+                            Visible at: {photo.visibilityAt ? formatTimestamp(photo.visibilityAt) : "-"}
+                          </p>
+                          <div className="pt-1">
+                            <span className="rounded-full bg-[var(--surface-2)] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                              {photo.status}
+                            </span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="rounded-lg border border-[var(--success-border)] bg-[var(--success-soft)] px-3 py-1.5 text-xs text-[var(--success-text)] disabled:opacity-50"
+                              onClick={() => void onModerateCameraPhoto(photo.id, "approve")}
+                              disabled={cameraActionLoadingId === photo.id}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-lg border border-[var(--warn-border)] bg-[var(--warn-soft)] px-3 py-1.5 text-xs text-[var(--warn-text)] disabled:opacity-50"
+                              onClick={() => void onModerateCameraPhoto(photo.id, "hide")}
+                              disabled={cameraActionLoadingId === photo.id}
+                            >
+                              Hide
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-lg border border-[var(--error-border)] bg-[var(--error-soft)] px-3 py-1.5 text-xs text-[var(--error-text)] disabled:opacity-50"
+                              onClick={() => void onModerateCameraPhoto(photo.id, "reject")}
+                              disabled={cameraActionLoadingId === photo.id}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </div>
               </>
             )}
           </section>

@@ -48,6 +48,12 @@ export async function GET(request: Request) {
         weddingDate: weddingSettings.weddingDate,
         weddingTime: weddingSettings.weddingTime,
         showCountdown: weddingSettings.showCountdown,
+        cameraEnabled: weddingSettings.cameraEnabled,
+        cameraRequireApproval: weddingSettings.cameraRequireApproval,
+        cameraGalleryUnlockDate: weddingSettings.cameraGalleryUnlockDate,
+        cameraGalleryUnlockTime: weddingSettings.cameraGalleryUnlockTime,
+        cameraMaxUploadMb: weddingSettings.cameraMaxUploadMb,
+        cameraShotLimitPerInvite: weddingSettings.cameraShotLimitPerInvite,
         countdownDays: calculateCountdownDays(weddingSettings.weddingDate),
       },
     });
