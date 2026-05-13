@@ -17,12 +17,6 @@ type CameraSessionSettings = {
   cameraStartButtonLabel: string;
 };
 
-type CameraAccess = {
-  eventId: string;
-  tableCode: string;
-  expiresAt: string;
-};
-
 type CameraGalleryItem = {
   id: string;
   createdAt: string;
@@ -76,25 +70,27 @@ function readOrCreateDeviceId(eventId: string) {
   return created;
 }
 
-function formatTimestamp(value: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
-}
+function resolveGalleryUnlockMessage(settings: CameraSessionSettings) {
+  const date = settings.cameraGalleryUnlockDate.trim();
+  const time = settings.cameraGalleryUnlockTime.trim();
+  if (!date) return "";
 
-function formatSessionTimeLeft(expiresAt: string) {
-  if (!expiresAt) return "";
-  const target = new Date(expiresAt).getTime();
-  if (Number.isNaN(target)) return "";
+  const iso = `${date}T${time || "00:00"}:00`;
+  const unlockAt = new Date(iso);
+  if (Number.isNaN(unlockAt.getTime())) return "";
 
-  const diffMs = target - Date.now();
-  if (diffMs <= 0) return "expired";
+  const formatted = unlockAt.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
-  const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
-  if (totalHours < 24) return `${totalHours}h left`;
-  const days = Math.ceil(totalHours / 24);
-  return `${days}d left`;
+  if (unlockAt.getTime() <= Date.now()) {
+    return `Gallery unlock is active since ${formatted}.`;
+  }
+  return `Gallery photos unlock on ${formatted}.`;
 }
 
 export default function CameraLandingPage() {
@@ -111,7 +107,6 @@ export default function CameraLandingPage() {
   const eventId = qrParams.eventId;
   const cameraToken = qrParams.cameraToken;
   const [deviceId, setDeviceId] = useState("");
-  const [access, setAccess] = useState<CameraAccess | null>(null);
   const [settings, setSettings] = useState<CameraSessionSettings>(DEFAULT_SETTINGS);
   const [galleryItems, setGalleryItems] = useState<CameraGalleryItem[]>([]);
   const [usage, setUsage] = useState<CameraUsage>({
@@ -137,10 +132,13 @@ export default function CameraLandingPage() {
   const [keepCameraActive, setKeepCameraActive] = useState(true);
   const [cameraPermissionFailed, setCameraPermissionFailed] = useState(false);
   const [showFallbackUpload, setShowFallbackUpload] = useState(false);
-  const [showFeed, setShowFeed] = useState(false);
+  const [showGallerySheet, setShowGallerySheet] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [zoomOptions, setZoomOptions] = useState<number[]>([1]);
+  const [selectedZoom, setSelectedZoom] = useState(1);
   const [started, setStarted] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [galleryLoading, setGalleryLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState("");
@@ -181,12 +179,12 @@ export default function CameraLandingPage() {
     if (manualClose) {
       setKeepCameraActive(false);
     }
+    setTorchEnabled(false);
     setCameraOpen(false);
   }, []);
 
   const loadGallery = useCallback(async () => {
     if (!eventId || !cameraToken || !deviceId) return;
-    setGalleryLoading(true);
     try {
       const params = new URLSearchParams({
         e: eventId,
@@ -213,8 +211,6 @@ export default function CameraLandingPage() {
       }
     } catch {
       setFeedback("Unable to load gallery right now.");
-    } finally {
-      setGalleryLoading(false);
     }
   }, [cameraToken, deviceId, eventId, settings.cameraShotLimitPerInvite]);
 
@@ -474,6 +470,53 @@ export default function CameraLandingPage() {
     }
   }
 
+  async function applyZoomLevel(level: number) {
+    const stream = streamRef.current;
+    const track = stream?.getVideoTracks?.()[0];
+    if (!track || !Number.isFinite(level)) return;
+
+    try {
+      const capabilities = (
+        track as MediaStreamTrack & {
+          getCapabilities?: () => unknown;
+        }
+      ).getCapabilities?.();
+
+      const zoomCapability = (capabilities as Record<string, unknown> | undefined)?.[
+        "zoom"
+      ] as
+        | { min?: number; max?: number; step?: number }
+        | undefined;
+      if (!zoomCapability || typeof zoomCapability.min !== "number" || typeof zoomCapability.max !== "number") {
+        return;
+      }
+
+      const clamped = Math.max(zoomCapability.min, Math.min(level, zoomCapability.max));
+      await track.applyConstraints({
+        advanced: [{ zoom: clamped } as MediaTrackConstraintSet],
+      });
+      setSelectedZoom(level);
+    } catch {
+      // Ignore zoom apply failures on unsupported browsers.
+    }
+  }
+
+  async function toggleFlash() {
+    const stream = streamRef.current;
+    const track = stream?.getVideoTracks?.()[0];
+    if (!track) return;
+
+    const nextValue = !torchEnabled;
+    try {
+      await track.applyConstraints({
+        advanced: [{ torch: nextValue } as MediaTrackConstraintSet],
+      });
+      setTorchEnabled(nextValue);
+    } catch {
+      setFeedback("Flash/torch is not available on this camera.");
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -500,7 +543,6 @@ export default function CameraLandingPage() {
 
         if (!cancelled) {
           setDeviceId(device);
-          setAccess(payload.access ?? null);
           setSettings({
             cameraEnabled: Boolean(payload.settings?.cameraEnabled),
             cameraRequireApproval: Boolean(payload.settings?.cameraRequireApproval),
@@ -585,6 +627,7 @@ export default function CameraLandingPage() {
     const video = videoRef.current;
     const stream = streamRef.current;
     if (!video || !stream) return;
+    const track = stream.getVideoTracks()[0];
 
     let cancelled = false;
     const attachAndPlay = async () => {
@@ -599,6 +642,52 @@ export default function CameraLandingPage() {
         await video.play();
       } catch {
         // Playback can fail on some browsers until user interacts again.
+      }
+
+      try {
+        const capabilities = (
+          track as MediaStreamTrack & {
+            getCapabilities?: () => unknown;
+          }
+        ).getCapabilities?.();
+
+        const torchCap = (capabilities as Record<string, unknown> | undefined)?.["torch"];
+        setTorchSupported(Boolean(torchCap));
+
+        const zoomCap = (capabilities as Record<string, unknown> | undefined)?.["zoom"] as
+          | { min?: number; max?: number }
+          | undefined;
+        if (zoomCap && typeof zoomCap.min === "number" && typeof zoomCap.max === "number") {
+          const min = Math.max(1, Math.ceil(zoomCap.min));
+          const max = Math.max(min, Math.floor(zoomCap.max));
+          const built: number[] = [];
+          for (let zoom = min; zoom <= Math.min(max, 3); zoom += 1) {
+            built.push(zoom);
+          }
+          if (!built.includes(1)) {
+            built.unshift(1);
+          }
+          const uniqueSorted = Array.from(new Set(built)).sort((a, b) => a - b);
+          setZoomOptions(uniqueSorted);
+          const defaultZoom = uniqueSorted.includes(1) ? 1 : uniqueSorted[0];
+          setSelectedZoom(defaultZoom);
+          if (defaultZoom) {
+            const clamped = Math.max(
+              zoomCap.min,
+              Math.min(defaultZoom, zoomCap.max),
+            );
+            await track.applyConstraints({
+              advanced: [{ zoom: clamped } as MediaTrackConstraintSet],
+            });
+          }
+        } else {
+          setZoomOptions([1]);
+          setSelectedZoom(1);
+        }
+      } catch {
+        setTorchSupported(false);
+        setZoomOptions([1]);
+        setSelectedZoom(1);
       }
 
       window.setTimeout(() => {
@@ -636,10 +725,7 @@ export default function CameraLandingPage() {
     );
   }
 
-  const headerSubtitle = access?.tableCode
-    ? `Session: ${access.tableCode}`
-    : "Event Camera Session";
-  const sessionTimeLeftLabel = formatSessionTimeLeft(access?.expiresAt ?? "");
+  const galleryUnlockMessage = resolveGalleryUnlockMessage(settings);
 
   return (
     <main className="min-h-screen bg-[#090909] text-white">
@@ -656,7 +742,6 @@ export default function CameraLandingPage() {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/40" />
           <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/20 bg-black/40 p-5 backdrop-blur-sm">
-            <p className="text-xs uppercase tracking-[0.18em] text-white/70">{headerSubtitle}</p>
             <h1 className="mt-2 text-3xl font-semibold">{settings.cameraEventTitle}</h1>
             <p className="mt-2 text-sm text-white/80">{settings.cameraEventSubtitle}</p>
             <button
@@ -691,26 +776,35 @@ export default function CameraLandingPage() {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black/90 via-black/55 to-transparent" />
 
             <div className="relative z-10 flex items-start justify-between p-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/65">
-                  {headerSubtitle}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">
-                  {usage.shotsLimit > 0
-                    ? `${usage.shotsLeft ?? 0} shots left`
-                    : "Unlimited shots"}
-                </p>
-              </div>
               <button
                 type="button"
-                className="rounded-full border border-white/35 bg-black/40 px-3 py-1 text-xs text-white"
-                onClick={() => setShowFallbackUpload((current) => !current)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white"
+                onClick={() => stopCamera(true)}
+                aria-label="Close camera"
               >
-                {showFallbackUpload ? "Hide Upload" : "Upload"}
+                <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                  <path
+                    d="M18.3 5.71a1 1 0 00-1.41 0L12 10.59 7.11 5.7A1 1 0 005.7 7.12L10.58 12l-4.9 4.89a1 1 0 101.42 1.41L12 13.41l4.89 4.9a1 1 0 001.41-1.42L13.42 12l4.9-4.89a1 1 0 00-.02-1.4z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/30 bg-black/45 text-white"
+                onClick={() => setShowFallbackUpload((current) => !current)}
+                aria-label="Upload photo"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                  <path
+                    d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zM8.5 11A1.5 1.5 0 1110 9.5 1.5 1.5 0 018.5 11zm3.8 6H5.2l3.3-4.2 2.2 2.7 3.2-3.8L18.8 17h-5.7zM19 8h-2V6h-2V4h2V2h2v2h2v2h-2z"
+                    fill="currentColor"
+                  />
+                </svg>
               </button>
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 top-6 z-10 px-14 text-center">
+            <div className="pointer-events-none absolute inset-x-0 top-7 z-10 px-14 text-center">
               <p className="truncate text-3xl font-semibold tracking-tight text-white drop-shadow-lg">
                 {settings.cameraEventTitle}
               </p>
@@ -827,7 +921,7 @@ export default function CameraLandingPage() {
             ) : null}
 
             {!cameraOpen ? (
-              <div className="absolute inset-x-0 bottom-24 z-10 px-6">
+              <div className="absolute inset-x-0 bottom-28 z-10 px-6">
                 <button
                   type="button"
                   className="w-full rounded-full bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-black disabled:opacity-40"
@@ -839,51 +933,145 @@ export default function CameraLandingPage() {
               </div>
             ) : null}
 
-            {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Latest shot preview"
-                className="absolute bottom-28 right-4 z-10 h-20 w-16 rounded-lg border border-white/40 object-cover shadow-xl"
-              />
-            ) : null}
+            <div className="absolute inset-x-0 bottom-5 z-10 px-4">
+              <div className="mx-auto max-w-sm">
+                <div className="mb-3 flex justify-center gap-2">
+                  {zoomOptions.map((zoom) => (
+                    <button
+                      key={zoom}
+                      type="button"
+                      className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+                        selectedZoom === zoom
+                          ? "bg-white text-black"
+                          : "border border-white/30 bg-black/45 text-white"
+                      }`}
+                      onClick={() => void applyZoomLevel(zoom)}
+                      disabled={!cameraOpen || cameraTransitioning}
+                    >
+                      {zoom}x
+                    </button>
+                  ))}
+                </div>
 
-            <div className="absolute inset-x-0 bottom-4 z-10 px-4">
-              <div className="mx-auto flex w-full max-w-xs items-center justify-between">
-                <button
-                  type="button"
-                  className="h-12 w-12 rounded-full border border-white/40 bg-black/45 text-xs text-white disabled:opacity-40"
-                  onClick={() => void switchCameraFacing()}
-                  disabled={!cameraOpen || uploading || cameraTransitioning}
-                  aria-label="Switch camera"
-                >
-                  Flip
-                </button>
+                <div className="flex items-end justify-between">
+                  <div className="flex w-20 flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/50 text-white disabled:opacity-40"
+                      onClick={() => void toggleFlash()}
+                      disabled={!cameraOpen || !torchSupported}
+                      aria-label="Toggle flash"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                        <path
+                          d="M11 2L5 13h5l-1 9 10-13h-6l2-7h-4z"
+                          fill={torchEnabled ? "currentColor" : "none"}
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                        />
+                      </svg>
+                    </button>
+                    <p className="text-center text-xs font-semibold text-white">
+                      {usage.shotsLimit > 0 ? usage.shotsLeft ?? 0 : "Unlimited"}
+                    </p>
+                  </div>
 
-                <button
-                  type="button"
-                  className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-white/20 disabled:opacity-40"
-                  onClick={() => void captureShot()}
-                  disabled={
-                    !cameraOpen ||
-                    !canCaptureMoreShots ||
-                    uploading ||
-                    cameraTransitioning
-                  }
-                  aria-label="Capture shot"
-                >
-                  <span className="h-14 w-14 rounded-full bg-white" />
-                </button>
+                  <button
+                    type="button"
+                    className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-white/20 disabled:opacity-40"
+                    onClick={() => void captureShot()}
+                    disabled={
+                      !cameraOpen ||
+                      !canCaptureMoreShots ||
+                      uploading ||
+                      cameraTransitioning
+                    }
+                    aria-label="Capture shot"
+                  >
+                    <span className="h-14 w-14 rounded-full bg-white" />
+                  </button>
 
-                <button
-                  type="button"
-                  className="h-12 w-12 rounded-full border border-white/40 bg-black/45 text-xs text-white"
-                  onClick={() => stopCamera(true)}
-                  aria-label="Close camera"
-                >
-                  Close
-                </button>
+                  <div className="flex w-20 flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/50 text-white disabled:opacity-40"
+                      onClick={() => void switchCameraFacing()}
+                      disabled={!cameraOpen || uploading || cameraTransitioning}
+                      aria-label="Flip camera"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                        <path
+                          d="M7 7h6l-2-2m2 2l-2 2M17 17h-6l2 2m-2-2l2-2M3 8a5 5 0 015-5h8a5 5 0 015 5v8a5 5 0 01-5 5H8a5 5 0 01-5-5V8z"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="h-16 w-16 overflow-hidden rounded-xl border border-white/40 bg-black/45 shadow-xl"
+                      onClick={() => setShowGallerySheet(true)}
+                      aria-label="Open gallery"
+                    >
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          alt="Latest shot preview"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="inline-flex h-full w-full items-center justify-center text-[10px] text-white/75">
+                          Gallery
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
+
+            {showGallerySheet ? (
+              <div className="absolute inset-0 z-30 flex items-end bg-black/55 p-3">
+                <div className="w-full rounded-3xl border border-white/20 bg-[#171822] p-4 shadow-2xl">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-white">Event Gallery</p>
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white"
+                      onClick={() => setShowGallerySheet(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                  {galleryUnlockMessage ? (
+                    <p className="mt-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80">
+                      {galleryUnlockMessage}
+                    </p>
+                  ) : null}
+                  {galleryItems.length === 0 ? (
+                    <p className="mt-3 rounded-lg border border-dashed border-white/20 px-3 py-2 text-sm text-white/70">
+                      No photos yet.
+                    </p>
+                  ) : (
+                    <div className="mt-3 grid max-h-80 grid-cols-3 gap-2 overflow-auto pr-1">
+                      {galleryItems.map((item) => (
+                        <article key={item.id} className="overflow-hidden rounded-lg border border-white/10">
+                          <img
+                            src={item.imageUrl}
+                            alt={`Photo by ${item.uploaderName}`}
+                            className="h-24 w-full object-cover"
+                            loading="lazy"
+                          />
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <canvas ref={canvasRef} className="hidden" />
           </section>
@@ -926,91 +1114,10 @@ export default function CameraLandingPage() {
               {feedback}
             </p>
           ) : null}
-
-          <section className="mt-4 rounded-2xl border border-white/15 bg-black/75 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65">
-                  Shots Remaining
-                </p>
-                <p className="text-2xl font-bold leading-none text-white">
-                  {usage.shotsLimit > 0 ? usage.shotsLeft ?? 0 : "∞"}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white"
-                  onClick={() => void openQrSheet()}
-                >
-                  QR
-                </button>
-                <button
-                  type="button"
-                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
-                  onClick={() => void shareCameraLink()}
-                  disabled={sharing}
-                >
-                  Share
-                </button>
-              </div>
-
-              <div className="min-w-14 text-right">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65">
-                  Session
-                </p>
-                <p className="text-xs font-semibold text-white">
-                  {sessionTimeLeftLabel || "Live"}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <button
-            type="button"
-            className="mt-3 w-full rounded-full border border-white/20 bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white"
-            onClick={() => setShowFeed((current) => !current)}
-          >
-            {showFeed ? "Hide Live Event Feed" : "See Live Event Feed"}
-          </button>
-
-          {showFeed ? (
-            <section className="mt-3 rounded-2xl border border-white/15 bg-white/5 p-3">
-              <p className="text-xs uppercase tracking-[0.16em] text-white/60">Live Event Feed</p>
-              {galleryLoading ? (
-                <p className="mt-2 text-sm text-white/70">Loading photos...</p>
-              ) : galleryItems.length === 0 ? (
-                <p className="mt-2 rounded-lg border border-dashed border-white/20 px-3 py-2 text-sm text-white/70">
-                  No photos yet.
-                </p>
-              ) : (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {galleryItems.slice(0, 12).map((item) => (
-                    <article
-                      key={item.id}
-                      className="overflow-hidden rounded-lg border border-white/10"
-                    >
-                      <img
-                        src={item.imageUrl}
-                        alt={`Photo by ${item.uploaderName}`}
-                        className="h-24 w-full object-cover"
-                        loading="lazy"
-                      />
-                      <div className="px-2 py-1">
-                        <p className="truncate text-[11px] text-white/90">{item.uploaderName}</p>
-                        <p className="truncate text-[10px] text-white/60">
-                          {formatTimestamp(item.createdAt)}
-                        </p>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
-          ) : null}
         </div>
       )}
     </main>
   );
 }
+
+
