@@ -190,6 +190,16 @@ export default function CameraLandingPage() {
     setCameraOpen(false);
   }, []);
 
+  const returnToCameraLanding = useCallback(() => {
+    stopCamera(true);
+    setStarted(false);
+    setShowFallbackUpload(false);
+    setShowGallerySheet(false);
+    setShowQrSheet(false);
+    setShowSubmitConfirm(false);
+    setPendingShotFile(null);
+  }, [stopCamera]);
+
   const loadGallery = useCallback(async () => {
     if (!eventId || !cameraToken || !deviceId) return;
     try {
@@ -831,7 +841,7 @@ export default function CameraLandingPage() {
               <button
                 type="button"
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white"
-                onClick={() => stopCamera(true)}
+                onClick={() => returnToCameraLanding()}
                 aria-label="Close camera"
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -1021,26 +1031,8 @@ export default function CameraLandingPage() {
 
             <div className="absolute inset-x-0 bottom-5 z-10 px-4">
               <div className="mx-auto max-w-sm">
-                <div className="mb-3 flex justify-center gap-2">
-                  {zoomOptions.map((zoom) => (
-                    <button
-                      key={zoom}
-                      type="button"
-                      className={`rounded-lg px-3 py-1 text-xs font-semibold ${
-                        selectedZoom === zoom
-                          ? "bg-white text-black"
-                          : "border border-white/30 bg-black/45 text-white"
-                      }`}
-                      onClick={() => void applyZoomLevel(zoom)}
-                      disabled={!cameraOpen || cameraTransitioning}
-                    >
-                      {zoom}x
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-end justify-between">
-                  <div className="flex w-20 flex-col items-center gap-2">
+                <div className="mb-3 grid grid-cols-3 items-center gap-2">
+                  <div className="flex justify-start">
                     <button
                       type="button"
                       className="flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/50 text-white disabled:opacity-40"
@@ -1057,27 +1049,27 @@ export default function CameraLandingPage() {
                         />
                       </svg>
                     </button>
-                    <p className="text-center text-xs font-semibold text-white">
-                      {usage.shotsLimit > 0 ? usage.shotsLeft ?? 0 : "Unlimited"}
-                    </p>
                   </div>
 
-                  <button
-                    type="button"
-                    className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-white/20 disabled:opacity-40"
-                    onClick={() => void captureShot()}
-                    disabled={
-                      !cameraOpen ||
-                      !canCaptureMoreShots ||
-                      uploading ||
-                      cameraTransitioning
-                    }
-                    aria-label="Capture shot"
-                  >
-                    <span className="h-14 w-14 rounded-full bg-white" />
-                  </button>
+                  <div className="flex justify-center gap-2">
+                  {zoomOptions.map((zoom) => (
+                    <button
+                      key={zoom}
+                      type="button"
+                      className={`rounded-lg px-3 py-1 text-xs font-semibold ${
+                        selectedZoom === zoom
+                          ? "bg-white text-black"
+                          : "border border-white/30 bg-black/45 text-white"
+                      }`}
+                      onClick={() => void applyZoomLevel(zoom)}
+                      disabled={!cameraOpen || cameraTransitioning}
+                    >
+                      {zoom}x
+                    </button>
+                  ))}
+                  </div>
 
-                  <div className="flex w-20 flex-col items-center gap-2">
+                  <div className="flex justify-end">
                     <button
                       type="button"
                       className="flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/50 text-white disabled:opacity-40"
@@ -1096,24 +1088,55 @@ export default function CameraLandingPage() {
                         />
                       </svg>
                     </button>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/20 bg-black/55 px-3 py-3 backdrop-blur-sm">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+                    <div className="flex min-w-0 items-end justify-start gap-2 pr-2">
+                      <p className="text-4xl font-extrabold leading-none text-white">
+                        {usage.shotsLimit > 0 ? usage.shotsLeft ?? 0 : "∞"}
+                      </p>
+                      <p className="pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/85">
+                        Shots Remaining
+                      </p>
+                    </div>
+
                     <button
                       type="button"
-                      className="h-16 w-16 overflow-hidden rounded-xl border border-white/40 bg-black/45 shadow-xl"
-                      onClick={() => setShowGallerySheet(true)}
-                      aria-label="Open gallery"
+                      className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-white/20 disabled:opacity-40"
+                      onClick={() => void captureShot()}
+                      disabled={
+                        !cameraOpen ||
+                        !canCaptureMoreShots ||
+                        uploading ||
+                        cameraTransitioning
+                      }
+                      aria-label="Capture shot"
                     >
-                      {previewUrl ? (
-                        <img
-                          src={previewUrl}
-                          alt="Latest shot preview"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <span className="inline-flex h-full w-full items-center justify-center text-[10px] text-white/75">
-                          Gallery
-                        </span>
-                      )}
+                      <span className="h-14 w-14 rounded-full bg-white" />
                     </button>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        className="h-16 w-16 overflow-hidden rounded-xl border border-white/40 bg-black/45 shadow-xl"
+                        onClick={() => setShowGallerySheet(true)}
+                        aria-label="Open gallery"
+                      >
+                        {previewUrl ? (
+                          <img
+                            src={previewUrl}
+                            alt="Latest shot preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="inline-flex h-full w-full items-center justify-center text-[10px] text-white/75">
+                            Gallery
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
