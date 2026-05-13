@@ -102,6 +102,8 @@ export default function CameraLandingPage() {
   });
   const [uploaderName, setUploaderName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [pendingShotFile, setPendingShotFile] = useState<File | null>(null);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>("environment");
   const [cameraTransitioning, setCameraTransitioning] = useState(false);
@@ -274,7 +276,8 @@ export default function CameraLandingPage() {
       });
       const payload = await response.json();
       if (!response.ok) {
-        setFeedback(payload.error ?? "Unable to upload.");
+        const hint = typeof payload.hint === "string" && payload.hint ? ` ${payload.hint}` : "";
+        setFeedback(`${payload.error ?? "Unable to upload."}${hint}`);
         if (payload.usage) {
           setUsage({
             shotsUsed: Number(payload.usage.shotsUsed ?? usage.shotsUsed),
@@ -349,8 +352,9 @@ export default function CameraLandingPage() {
       type: "image/jpeg",
     });
     setSelectedFile(fileToUpload);
-    setFeedback("Processing shot...");
-    await uploadPhoto(fileToUpload);
+    setPendingShotFile(fileToUpload);
+    setShowSubmitConfirm(true);
+    setFeedback("Shot captured.");
   }
 
   async function onUpload(event: FormEvent<HTMLFormElement>) {
@@ -360,6 +364,14 @@ export default function CameraLandingPage() {
       return;
     }
     await uploadPhoto(selectedFile);
+  }
+
+  async function confirmSubmitPendingShot() {
+    if (!pendingShotFile) return;
+    setShowSubmitConfirm(false);
+    setFeedback("Processing shot...");
+    await uploadPhoto(pendingShotFile);
+    setPendingShotFile(null);
   }
 
   useEffect(() => {
@@ -596,6 +608,37 @@ export default function CameraLandingPage() {
                 {showFallbackUpload ? "Hide Upload" : "Upload"}
               </button>
             </div>
+
+            {showSubmitConfirm ? (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 px-6">
+                <div className="w-full max-w-xs rounded-2xl border border-white/25 bg-black/75 p-4 backdrop-blur-sm">
+                  <p className="text-center text-lg font-semibold text-white">Submit photo?</p>
+                  <p className="mt-2 text-center text-xs leading-relaxed text-white/80">
+                    You can continue taking more shots after submitting this one.
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      className="rounded-lg border border-white/25 px-3 py-2 text-sm text-white"
+                      onClick={() => {
+                        setShowSubmitConfirm(false);
+                        setPendingShotFile(null);
+                        setFeedback("Submission cancelled.");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black"
+                      onClick={() => void confirmSubmitPendingShot()}
+                    >
+                      Submit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             {!cameraOpen ? (
               <div className="absolute inset-x-0 bottom-24 z-10 px-6">

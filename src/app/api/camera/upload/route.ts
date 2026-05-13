@@ -37,6 +37,53 @@ function mimeTypeToExtension(mimeType: string) {
   return "jpg";
 }
 
+function classifyUploadFailure(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const responseStatus = Number(
+    (error as { response?: { status?: number } } | null)?.response?.status ?? 0,
+  );
+
+  if (message.includes("Missing GOOGLE_DRIVE_CAMERA_FOLDER_ID")) {
+    return {
+      code: "DRIVE_FOLDER_ENV_MISSING",
+      hint: "Set GOOGLE_DRIVE_CAMERA_FOLDER_ID in Vercel Project Environment Variables.",
+    };
+  }
+
+  if (message.includes("Unable to resolve camera folder")) {
+    return {
+      code: "DRIVE_SUBFOLDER_RESOLUTION_FAILED",
+      hint: "Verify service-account Editor access to the camera folder/shared drive.",
+    };
+  }
+
+  if (message.includes("Sheet not found:") || message.includes("spreadsheets")) {
+    return {
+      code: "SHEETS_WRITE_FAILED",
+      hint: "Check GOOGLE_SHEETS_SPREADSHEET_ID and ensure service account can edit it.",
+    };
+  }
+
+  if (responseStatus === 403) {
+    return {
+      code: "DRIVE_OR_SHEETS_PERMISSION_DENIED",
+      hint: "Grant service account Editor access to Drive folder and Google Sheet.",
+    };
+  }
+
+  if (responseStatus === 404) {
+    return {
+      code: "DRIVE_OR_SHEETS_RESOURCE_NOT_FOUND",
+      hint: "Verify Drive Folder ID and Spreadsheet ID in Vercel env values.",
+    };
+  }
+
+  return {
+    code: "UPLOAD_INTERNAL_ERROR",
+    hint: "Check Vercel Function logs for /api/camera/upload.",
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const settings = await readWeddingSettings();
@@ -193,12 +240,19 @@ export async function POST(request: Request) {
       parentFolderId: driveFolders.originalsFolderId,
     });
 
-    const uploadedPreview = await uploadImageToDrive({
-      buffer: processed.previewBuffer,
-      fileName: previewFileName,
-      mimeType: processed.mimeType,
-      parentFolderId: driveFolders.previewsFolderId,
-    });
+    const uploadedPreview = await (async () => {
+      try {
+        return await uploadImageToDrive({
+          buffer: processed.previewBuffer,
+          fileName: previewFileName,
+          mimeType: processed.mimeType,
+          parentFolderId: driveFolders.previewsFolderId,
+        });
+      } catch (previewUploadError) {
+        console.warn("Preview upload failed. Falling back to original file reference.", previewUploadError);
+        return uploadedOriginal;
+      }
+    })();
 
     const status = settings.cameraRequireApproval ? "pending" : "approved";
     const visibilityAt = resolveCameraVisibilityAt(settings, nowIso);
@@ -239,10 +293,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Camera upload error:", error);
+    const classified = classifyUploadFailure(error);
     const details = error instanceof Error ? error.message : "Unknown camera upload error.";
     return NextResponse.json(
       {
         error: "Unable to upload photo right now.",
+        errorCode: classified.code,
+        hint: classified.hint,
         ...(process.env.NODE_ENV !== "production" ? { details } : {}),
       },
       { status: 500 },
