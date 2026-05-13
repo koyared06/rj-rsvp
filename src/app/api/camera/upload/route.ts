@@ -29,14 +29,6 @@ function buildDriveFileName(inviteCode: string, extension: string) {
   return `camera-${safeInviteCode}-${stamp}.${extension}`;
 }
 
-function mimeTypeToExtension(mimeType: string) {
-  if (mimeType === "image/jpeg") return "jpg";
-  if (mimeType === "image/png") return "png";
-  if (mimeType === "image/webp") return "webp";
-  if (mimeType === "image/heic") return "heic";
-  return "jpg";
-}
-
 function classifyUploadFailure(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "");
   const responseStatus = Number(
@@ -54,6 +46,13 @@ function classifyUploadFailure(error: unknown) {
     return {
       code: "DRIVE_SUBFOLDER_RESOLUTION_FAILED",
       hint: "Verify service-account Editor access to the camera folder/shared drive.",
+    };
+  }
+
+  if (message.includes("CAMERA_WATERMARK_PROCESSING_FAILED")) {
+    return {
+      code: "WATERMARK_PROCESSING_FAILED",
+      hint: "Watermark processing failed. Check image format support and Vercel function logs.",
     };
   }
 
@@ -210,25 +209,13 @@ export async function POST(request: Request) {
       }
     })();
 
-    const processed = await (async () => {
-      try {
-        return await processCameraImage(uploadBuffer, {
-          line1: driveEnv.watermarkLine1,
-          line2: driveEnv.watermarkLine2,
-        });
-      } catch (imageError) {
-        console.warn("Camera watermark processing failed. Falling back to raw upload.", imageError);
-        const fallbackExt = mimeTypeToExtension(file.type || "image/jpeg");
-        return {
-          originalBuffer: uploadBuffer,
-          previewBuffer: uploadBuffer,
-          mimeType: file.type || "image/jpeg",
-          extension: fallbackExt,
-          width: 0,
-          height: 0,
-        };
-      }
-    })();
+    const resolvedUploaderName = payload.uploaderName?.trim() || uploaderNameFallback || "Guest";
+
+    const processed = await processCameraImage(uploadBuffer, {
+      line1: driveEnv.watermarkLine1,
+      line2: driveEnv.watermarkLine2,
+      capturedBy: resolvedUploaderName,
+    });
 
     const originalFileName = buildDriveFileName(actorCode, processed.extension);
     const previewFileName = buildDriveFileName(`${actorCode}-preview`, processed.extension);
@@ -261,7 +248,7 @@ export async function POST(request: Request) {
 
     const saved = await appendCameraPhoto({
       inviteCode: actorCode,
-      uploaderName: payload.uploaderName?.trim() || uploaderNameFallback,
+      uploaderName: resolvedUploaderName,
       driveFileId: uploadedOriginal.fileId,
       previewDriveFileId: uploadedPreview.fileId,
       mimeType: uploadedOriginal.mimeType,

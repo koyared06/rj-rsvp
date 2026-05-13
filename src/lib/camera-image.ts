@@ -3,6 +3,7 @@ import sharp from "sharp";
 type WatermarkOptions = {
   line1: string;
   line2: string;
+  capturedBy?: string;
 };
 
 export type CameraImageProcessingResult = {
@@ -23,38 +24,57 @@ function escapeXml(value: string) {
     .replace(/'/g, "&apos;");
 }
 
+function normalizeWatermarkText(value: string, fallback: string, maxLength: number) {
+  const cleaned = value.trim();
+  const text = cleaned || fallback;
+  return text.slice(0, maxLength);
+}
+
 function buildWatermarkSvg(width: number, height: number, options: WatermarkOptions) {
-  const safeWidth = Math.max(width, 720);
-  const safeHeight = Math.max(height, 720);
+  // Keep overlay dimensions <= source image to avoid Sharp composite failures.
+  const safeWidth = Math.max(1, Math.floor(width));
+  const safeHeight = Math.max(1, Math.floor(height));
+  const base = Math.max(12, Math.round(Math.min(safeWidth, safeHeight) * 0.03));
+  const pad = Math.max(10, Math.round(base * 0.8));
+  const radius = Math.max(8, Math.round(base * 0.7));
 
-  const paddingX = Math.max(20, Math.round(safeWidth * 0.03));
-  const paddingY = Math.max(18, Math.round(safeHeight * 0.026));
-  const line1Size = Math.max(30, Math.round(safeWidth * 0.043));
-  const line2Size = Math.max(20, Math.round(safeWidth * 0.028));
-  const lineGap = Math.max(8, Math.round(safeWidth * 0.01));
-  const boxHeight = paddingY * 2 + line1Size + line2Size + lineGap;
-  const boxWidth = Math.round(safeWidth * 0.78);
-  const boxY = safeHeight - boxHeight - paddingY;
+  const leftLine1 = escapeXml(normalizeWatermarkText(options.line1, "Red & Jess", 48));
+  const leftLine2 = escapeXml(normalizeWatermarkText(options.line2, "#soaferRED-ynasiJESS", 72));
+  const capturedByName = normalizeWatermarkText(options.capturedBy ?? "", "Guest", 48);
+  const capturedByLabel = escapeXml(`Captured by: ${capturedByName}`);
 
-  const line1Y = boxY + paddingY + line1Size;
-  const line2Y = line1Y + lineGap + line2Size;
+  const leftLine1Size = Math.max(16, Math.round(base * 1.05));
+  const leftLine2Size = Math.max(12, Math.round(base * 0.72));
+  const leftGap = Math.max(4, Math.round(base * 0.35));
+  const leftBoxHeight = pad * 2 + leftLine1Size + leftLine2Size + leftGap;
+  const leftBoxWidth = Math.min(
+    Math.round(safeWidth * 0.64),
+    Math.max(170, Math.round(safeWidth * 0.48)),
+  );
+  const leftBoxX = pad;
+  const leftBoxY = safeHeight - leftBoxHeight - pad;
+  const leftTextX = leftBoxX + pad;
+  const leftLine1Y = leftBoxY + pad + leftLine1Size;
+  const leftLine2Y = leftLine1Y + leftGap + leftLine2Size;
 
-  const line1 = escapeXml(options.line1);
-  const line2 = escapeXml(options.line2);
+  const rightTextSize = Math.max(10, Math.round(base * 0.62));
+  const rightBoxHeight = pad * 2 + rightTextSize;
+  const rightBoxWidth = Math.min(
+    Math.round(safeWidth * 0.52),
+    Math.max(160, Math.round(capturedByLabel.length * rightTextSize * 0.45) + pad * 2),
+  );
+  const rightBoxX = safeWidth - rightBoxWidth - pad;
+  const rightBoxY = safeHeight - rightBoxHeight - pad;
+  const rightTextX = safeWidth - pad * 2;
+  const rightTextY = rightBoxY + pad + rightTextSize;
 
   return `
 <svg width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="wmFade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(0,0,0,0.25)" />
-      <stop offset="100%" stop-color="rgba(0,0,0,0.62)" />
-    </linearGradient>
-  </defs>
-  <rect x="${paddingX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="${Math.round(
-    paddingY * 0.8,
-  )}" fill="url(#wmFade)" />
-  <text x="${paddingX + paddingX}" y="${line1Y}" fill="rgba(255,255,255,0.98)" font-size="${line1Size}" font-family="Arial, Helvetica, sans-serif" font-weight="700" letter-spacing="0.4">${line1}</text>
-  <text x="${paddingX + paddingX}" y="${line2Y}" fill="rgba(255,255,255,0.88)" font-size="${line2Size}" font-family="Arial, Helvetica, sans-serif" font-weight="500" letter-spacing="0.2">${line2}</text>
+  <rect x="${leftBoxX}" y="${leftBoxY}" width="${leftBoxWidth}" height="${leftBoxHeight}" rx="${radius}" fill="rgba(0,0,0,0.46)" />
+  <text x="${leftTextX}" y="${leftLine1Y}" fill="rgba(255,255,255,0.98)" font-size="${leftLine1Size}" font-family="Arial, Helvetica, sans-serif" font-weight="700" letter-spacing="0.2">${leftLine1}</text>
+  <text x="${leftTextX}" y="${leftLine2Y}" fill="rgba(255,255,255,0.90)" font-size="${leftLine2Size}" font-family="Arial, Helvetica, sans-serif" font-weight="500" letter-spacing="0.1">${leftLine2}</text>
+  <rect x="${rightBoxX}" y="${rightBoxY}" width="${rightBoxWidth}" height="${rightBoxHeight}" rx="${radius}" fill="rgba(0,0,0,0.46)" />
+  <text x="${rightTextX}" y="${rightTextY}" text-anchor="end" fill="rgba(255,255,255,0.95)" font-size="${rightTextSize}" font-family="Arial, Helvetica, sans-serif" font-weight="600" letter-spacing="0.08">${capturedByLabel}</text>
 </svg>`;
 }
 
@@ -62,31 +82,36 @@ export async function processCameraImage(
   sourceBuffer: Buffer,
   options: WatermarkOptions,
 ): Promise<CameraImageProcessingResult> {
-  const meta = await sharp(sourceBuffer).rotate().metadata();
-  const width = meta.width ?? 1200;
-  const height = meta.height ?? 1600;
+  try {
+    const meta = await sharp(sourceBuffer).rotate().metadata();
+    const width = meta.width ?? 1200;
+    const height = meta.height ?? 1600;
 
-  const watermarkSvg = buildWatermarkSvg(width, height, options);
-  const watermarkedOriginal = await sharp(sourceBuffer)
-    .rotate()
-    .composite([{ input: Buffer.from(watermarkSvg), top: 0, left: 0 }])
-    .jpeg({ quality: 94, mozjpeg: true })
-    .toBuffer();
+    const watermarkSvg = buildWatermarkSvg(width, height, options);
+    const watermarkedOriginal = await sharp(sourceBuffer)
+      .rotate()
+      .composite([{ input: Buffer.from(watermarkSvg), top: 0, left: 0 }])
+      .jpeg({ quality: 94, mozjpeg: true })
+      .toBuffer();
 
-  const previewMaxWidth = 1280;
-  const watermarkedPreview = await sharp(watermarkedOriginal)
-    .resize({ width: previewMaxWidth, withoutEnlargement: true })
-    .jpeg({ quality: 84, mozjpeg: true })
-    .toBuffer();
+    const previewMaxWidth = 1280;
+    const watermarkedPreview = await sharp(watermarkedOriginal)
+      .resize({ width: previewMaxWidth, withoutEnlargement: true })
+      .jpeg({ quality: 84, mozjpeg: true })
+      .toBuffer();
 
-  const outputMeta = await sharp(watermarkedOriginal).metadata();
+    const outputMeta = await sharp(watermarkedOriginal).metadata();
 
-  return {
-    originalBuffer: watermarkedOriginal,
-    previewBuffer: watermarkedPreview,
-    mimeType: "image/jpeg",
-    extension: "jpg",
-    width: outputMeta.width ?? width,
-    height: outputMeta.height ?? height,
-  };
+    return {
+      originalBuffer: watermarkedOriginal,
+      previewBuffer: watermarkedPreview,
+      mimeType: "image/jpeg",
+      extension: "jpg",
+      width: outputMeta.width ?? width,
+      height: outputMeta.height ?? height,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    throw new Error(`CAMERA_WATERMARK_PROCESSING_FAILED: ${message}`);
+  }
 }
