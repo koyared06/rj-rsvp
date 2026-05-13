@@ -8,8 +8,8 @@ type WatermarkOptions = {
 export type CameraImageProcessingResult = {
   originalBuffer: Buffer;
   previewBuffer: Buffer;
-  mimeType: "image/jpeg";
-  extension: "jpg";
+  mimeType: string;
+  extension: string;
   width: number;
   height: number;
 };

@@ -29,6 +29,14 @@ function buildDriveFileName(inviteCode: string, extension: string) {
   return `camera-${safeInviteCode}-${stamp}.${extension}`;
 }
 
+function mimeTypeToExtension(mimeType: string) {
+  if (mimeType === "image/jpeg") return "jpg";
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  if (mimeType === "image/heic") return "heic";
+  return "jpg";
+}
+
 export async function POST(request: Request) {
   try {
     const settings = await readWeddingSettings();
@@ -135,12 +143,45 @@ export async function POST(request: Request) {
 
     const nowIso = new Date().toISOString();
     const uploadBuffer = Buffer.from(await file.arrayBuffer());
-    const driveFolders = await resolveCameraDriveFolders();
     const driveEnv = getDriveCameraEnv();
-    const processed = await processCameraImage(uploadBuffer, {
-      line1: driveEnv.watermarkLine1,
-      line2: driveEnv.watermarkLine2,
-    });
+
+    const rootFolderId = driveEnv.folderId;
+    if (!rootFolderId) {
+      throw new Error("Missing GOOGLE_DRIVE_CAMERA_FOLDER_ID.");
+    }
+
+    const driveFolders = await (async () => {
+      try {
+        return await resolveCameraDriveFolders();
+      } catch (folderError) {
+        console.warn("Camera folder resolution failed. Falling back to root folder.", folderError);
+        return {
+          rootFolderId,
+          originalsFolderId: rootFolderId,
+          previewsFolderId: rootFolderId,
+        };
+      }
+    })();
+
+    const processed = await (async () => {
+      try {
+        return await processCameraImage(uploadBuffer, {
+          line1: driveEnv.watermarkLine1,
+          line2: driveEnv.watermarkLine2,
+        });
+      } catch (imageError) {
+        console.warn("Camera watermark processing failed. Falling back to raw upload.", imageError);
+        const fallbackExt = mimeTypeToExtension(file.type || "image/jpeg");
+        return {
+          originalBuffer: uploadBuffer,
+          previewBuffer: uploadBuffer,
+          mimeType: file.type || "image/jpeg",
+          extension: fallbackExt,
+          width: 0,
+          height: 0,
+        };
+      }
+    })();
 
     const originalFileName = buildDriveFileName(actorCode, processed.extension);
     const previewFileName = buildDriveFileName(`${actorCode}-preview`, processed.extension);

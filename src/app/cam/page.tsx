@@ -104,6 +104,7 @@ export default function CameraLandingPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>("environment");
+  const [cameraTransitioning, setCameraTransitioning] = useState(false);
   const [keepCameraActive, setKeepCameraActive] = useState(true);
   const [cameraPermissionFailed, setCameraPermissionFailed] = useState(false);
   const [showFallbackUpload, setShowFallbackUpload] = useState(false);
@@ -189,7 +190,12 @@ export default function CameraLandingPage() {
         return;
       }
 
+      setCameraTransitioning(true);
+      const hadStream = Boolean(streamRef.current);
       stopCamera(false);
+      if (hadStream) {
+        await new Promise((resolve) => window.setTimeout(resolve, 120));
+      }
 
       const backupFacing: CameraFacing =
         preferredFacing === "environment" ? "user" : "environment";
@@ -221,6 +227,7 @@ export default function CameraLandingPage() {
         if (!stream) {
           setCameraPermissionFailed(true);
           setFeedback("Camera permission blocked or unavailable. Use upload as fallback.");
+          setCameraTransitioning(false);
           return;
         }
 
@@ -233,6 +240,8 @@ export default function CameraLandingPage() {
       } catch {
         setCameraPermissionFailed(true);
         setFeedback("Camera permission blocked. Use upload as fallback.");
+      } finally {
+        setCameraTransitioning(false);
       }
     },
     [cameraFacing, canCaptureMoreShots, stopCamera],
@@ -441,7 +450,7 @@ export default function CameraLandingPage() {
 
   useEffect(() => {
     if (showLandingScreen) return;
-    if (cameraOpen || uploading) return;
+    if (cameraOpen || uploading || cameraTransitioning) return;
     if (!keepCameraActive || cameraPermissionFailed || !canCaptureMoreShots) return;
 
     const timer = window.setTimeout(() => {
@@ -451,6 +460,7 @@ export default function CameraLandingPage() {
   }, [
     cameraOpen,
     cameraPermissionFailed,
+    cameraTransitioning,
     canCaptureMoreShots,
     keepCameraActive,
     showLandingScreen,
@@ -593,9 +603,9 @@ export default function CameraLandingPage() {
                   type="button"
                   className="w-full rounded-full bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-black disabled:opacity-40"
                   onClick={() => void startCamera()}
-                  disabled={!canCaptureMoreShots}
+                  disabled={!canCaptureMoreShots || cameraTransitioning}
                 >
-                  Open Camera
+                  {cameraTransitioning ? "Switching..." : "Open Camera"}
                 </button>
               </div>
             ) : null}
@@ -614,7 +624,7 @@ export default function CameraLandingPage() {
                   type="button"
                   className="h-12 w-12 rounded-full border border-white/40 bg-black/45 text-xs text-white disabled:opacity-40"
                   onClick={() => void switchCameraFacing()}
-                  disabled={!cameraOpen || uploading}
+                  disabled={!cameraOpen || uploading || cameraTransitioning}
                   aria-label="Switch camera"
                 >
                   Flip
@@ -624,7 +634,12 @@ export default function CameraLandingPage() {
                   type="button"
                   className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-white/20 disabled:opacity-40"
                   onClick={() => void captureShot()}
-                  disabled={!cameraOpen || !canCaptureMoreShots || uploading}
+                  disabled={
+                    !cameraOpen ||
+                    !canCaptureMoreShots ||
+                    uploading ||
+                    cameraTransitioning
+                  }
                   aria-label="Capture shot"
                 >
                   <span className="h-14 w-14 rounded-full bg-white" />
