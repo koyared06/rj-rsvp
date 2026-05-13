@@ -53,10 +53,6 @@ function makeDeviceStorageKey(eventId: string) {
   return `rj_camera_device_${eventId}`;
 }
 
-function makeAutoSubmitStorageKey(eventId: string) {
-  return `rj_camera_auto_submit_${eventId}`;
-}
-
 function makeGuestNameStorageKey(eventId: string) {
   return `rj_camera_guest_name_${eventId}`;
 }
@@ -121,17 +117,7 @@ export default function CameraLandingPage() {
   const [uploaderName, setUploaderName] = useState("");
   const [guestNameDraft, setGuestNameDraft] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [pendingShotFile, setPendingShotFile] = useState<File | null>(null);
-  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [showGuestNameModal, setShowGuestNameModal] = useState(false);
-  const [autoSubmitConfirmed, setAutoSubmitConfirmed] = useState<boolean>(() => {
-    if (typeof window === "undefined" || !eventId) return false;
-    try {
-      return window.localStorage.getItem(makeAutoSubmitStorageKey(eventId)) === "true";
-    } catch {
-      return false;
-    }
-  });
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>("environment");
   const [cameraTransitioning, setCameraTransitioning] = useState(false);
@@ -148,7 +134,7 @@ export default function CameraLandingPage() {
   const [uploading, setUploading] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [, setFeedback] = useState("");
   const [showQrSheet, setShowQrSheet] = useState(false);
   const [qrImageDataUrl, setQrImageDataUrl] = useState("");
   const [qrRendering, setQrRendering] = useState(false);
@@ -196,8 +182,6 @@ export default function CameraLandingPage() {
     setShowFallbackUpload(false);
     setShowGallerySheet(false);
     setShowQrSheet(false);
-    setShowSubmitConfirm(false);
-    setPendingShotFile(null);
   }, [stopCamera]);
 
   const loadGallery = useCallback(async () => {
@@ -437,15 +421,7 @@ export default function CameraLandingPage() {
       type: "image/jpeg",
     });
     setSelectedFile(fileToUpload);
-    if (autoSubmitConfirmed) {
-      setFeedback("Processing shot...");
-      await uploadPhoto(fileToUpload);
-      return;
-    }
-
-    setPendingShotFile(fileToUpload);
-    setShowSubmitConfirm(true);
-    setFeedback("Shot captured.");
+    await uploadPhoto(fileToUpload);
   }
 
   async function onUpload(event: FormEvent<HTMLFormElement>) {
@@ -457,22 +433,6 @@ export default function CameraLandingPage() {
       return;
     }
     await uploadPhoto(selectedFile);
-  }
-
-  async function confirmSubmitPendingShot() {
-    if (!pendingShotFile) return;
-    if (eventId) {
-      try {
-        window.localStorage.setItem(makeAutoSubmitStorageKey(eventId), "true");
-      } catch {
-        // Ignore storage write failures.
-      }
-    }
-    setAutoSubmitConfirmed(true);
-    setShowSubmitConfirm(false);
-    setFeedback("Processing shot...");
-    await uploadPhoto(pendingShotFile);
-    setPendingShotFile(null);
   }
 
   async function openQrSheet() {
@@ -790,9 +750,9 @@ export default function CameraLandingPage() {
     showGuestNameModal || (!showLandingScreen && !normalizedGuestName);
 
   return (
-    <main className="min-h-screen bg-[#090909] text-white">
+    <main className="h-[100dvh] overflow-hidden bg-[#090909] text-white">
       {showLandingScreen ? (
-        <section className="relative flex min-h-screen items-end justify-center overflow-hidden px-4 py-10">
+        <section className="relative flex h-[100dvh] items-end justify-center overflow-hidden px-4 py-10">
           {settings.cameraCoverImageUrl ? (
             <img
               src={settings.cameraCoverImageUrl}
@@ -820,8 +780,8 @@ export default function CameraLandingPage() {
           </div>
         </section>
       ) : (
-        <div className="mx-auto flex w-full max-w-md flex-col sm:py-4">
-          <section className="relative min-h-[78vh] overflow-hidden bg-black sm:min-h-[88vh] sm:rounded-[34px] sm:border sm:border-white/15">
+        <div className="mx-auto flex h-[100dvh] w-full max-w-md flex-col overflow-hidden">
+          <section className="relative h-full overflow-hidden bg-black sm:border sm:border-white/15">
             {cameraOpen ? (
               <video
                 ref={videoRef}
@@ -902,37 +862,6 @@ export default function CameraLandingPage() {
                 </svg>
               </button>
             </div>
-
-            {showSubmitConfirm ? (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 px-6">
-                <div className="w-full max-w-xs rounded-2xl border border-white/25 bg-black/75 p-4 backdrop-blur-sm">
-                  <p className="text-center text-lg font-semibold text-white">Submit photo?</p>
-                  <p className="mt-2 text-center text-xs leading-relaxed text-white/80">
-                    You can continue taking more shots after submitting this one.
-                  </p>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      className="rounded-lg border border-white/25 px-3 py-2 text-sm text-white"
-                      onClick={() => {
-                        setShowSubmitConfirm(false);
-                        setPendingShotFile(null);
-                        setFeedback("Submission cancelled.");
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black"
-                      onClick={() => void confirmSubmitPendingShot()}
-                    >
-                      Submit
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
 
             {isGuestNameModalVisible ? (
               <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 px-6">
@@ -1029,7 +958,7 @@ export default function CameraLandingPage() {
               </div>
             ) : null}
 
-            <div className="absolute inset-x-0 bottom-2 z-10 px-4">
+            <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
               <div className="mx-auto max-w-sm">
                 <div className="mb-3 grid grid-cols-3 items-center gap-2">
                   <div className="flex justify-start">
