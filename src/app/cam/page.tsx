@@ -59,6 +59,10 @@ function makeDeviceStorageKey(eventId: string) {
   return `rj_camera_device_${eventId}`;
 }
 
+function makeAutoSubmitStorageKey(eventId: string) {
+  return `rj_camera_auto_submit_${eventId}`;
+}
+
 function readOrCreateDeviceId(eventId: string) {
   const key = makeDeviceStorageKey(eventId);
   const existing = window.localStorage.getItem(key);
@@ -119,6 +123,14 @@ export default function CameraLandingPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pendingShotFile, setPendingShotFile] = useState<File | null>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [autoSubmitConfirmed, setAutoSubmitConfirmed] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !eventId) return false;
+    try {
+      return window.localStorage.getItem(makeAutoSubmitStorageKey(eventId)) === "true";
+    } catch {
+      return false;
+    }
+  });
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>("environment");
   const [cameraTransitioning, setCameraTransitioning] = useState(false);
@@ -378,6 +390,12 @@ export default function CameraLandingPage() {
       type: "image/jpeg",
     });
     setSelectedFile(fileToUpload);
+    if (autoSubmitConfirmed) {
+      setFeedback("Processing shot...");
+      await uploadPhoto(fileToUpload);
+      return;
+    }
+
     setPendingShotFile(fileToUpload);
     setShowSubmitConfirm(true);
     setFeedback("Shot captured.");
@@ -394,6 +412,14 @@ export default function CameraLandingPage() {
 
   async function confirmSubmitPendingShot() {
     if (!pendingShotFile) return;
+    if (eventId) {
+      try {
+        window.localStorage.setItem(makeAutoSubmitStorageKey(eventId), "true");
+      } catch {
+        // Ignore storage write failures.
+      }
+    }
+    setAutoSubmitConfirmed(true);
     setShowSubmitConfirm(false);
     setFeedback("Processing shot...");
     await uploadPhoto(pendingShotFile);
