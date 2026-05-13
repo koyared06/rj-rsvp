@@ -72,6 +72,7 @@ Camera Drive + watermark env options:
 
 ```text
 GOOGLE_DRIVE_CAMERA_FOLDER_ID
+GOOGLE_DRIVE_FOLDER_ID (legacy alias fallback)
 GOOGLE_DRIVE_SHARED_DRIVE_ID
 GOOGLE_DRIVE_CAMERA_ORIGINALS_FOLDER_NAME (default: originals)
 GOOGLE_DRIVE_CAMERA_PREVIEWS_FOLDER_NAME (default: previews)

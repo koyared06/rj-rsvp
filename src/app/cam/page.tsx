@@ -79,6 +79,20 @@ function formatTimestamp(value: string) {
   return date.toLocaleString();
 }
 
+function formatSessionTimeLeft(expiresAt: string) {
+  if (!expiresAt) return "";
+  const target = new Date(expiresAt).getTime();
+  if (Number.isNaN(target)) return "";
+
+  const diffMs = target - Date.now();
+  if (diffMs <= 0) return "expired";
+
+  const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+  if (totalHours < 24) return `${totalHours}h left`;
+  const days = Math.ceil(totalHours / 24);
+  return `${days}d left`;
+}
+
 export default function CameraLandingPage() {
   const qrParams = useMemo(() => {
     if (typeof window === "undefined") {
@@ -599,6 +613,7 @@ export default function CameraLandingPage() {
   const headerSubtitle = access?.tableCode
     ? `Session: ${access.tableCode}`
     : "Event Camera Session";
+  const sessionTimeLeftLabel = formatSessionTimeLeft(access?.expiresAt ?? "");
 
   return (
     <main className="min-h-screen bg-[#090909] text-white">
@@ -666,6 +681,43 @@ export default function CameraLandingPage() {
                 onClick={() => setShowFallbackUpload((current) => !current)}
               >
                 {showFallbackUpload ? "Hide Upload" : "Upload"}
+              </button>
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-0 top-6 z-10 px-14 text-center">
+              <p className="truncate text-3xl font-semibold tracking-tight text-white drop-shadow-lg">
+                {settings.cameraEventTitle}
+              </p>
+              <p className="truncate text-xs text-white/75 drop-shadow">{settings.cameraEventSubtitle}</p>
+            </div>
+
+            <div className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-2">
+              <button
+                type="button"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/25 bg-black/55 text-white/95 backdrop-blur-sm"
+                onClick={() => void openQrSheet()}
+                aria-label="Open QR share"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                  <path
+                    d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm13 2h2v2h-2v-2zm-2-2h2v2h-2v-2zm4 4h2v2h-2v-2zm-4 2h2v2h-2v-2zm4-10h3v3h-3v-3z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/25 bg-black/55 text-white/95 backdrop-blur-sm disabled:opacity-40"
+                onClick={() => void shareCameraLink()}
+                disabled={sharing}
+                aria-label="Share camera link"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                  <path
+                    d="M14 3l7 7-7 7-1.4-1.4 4.6-4.6H8a5 5 0 000 10h3v2H8a7 7 0 010-14h9.2l-4.6-4.6L14 3z"
+                    fill="currentColor"
+                  />
+                </svg>
               </button>
             </div>
 
@@ -849,39 +901,49 @@ export default function CameraLandingPage() {
             </p>
           ) : null}
 
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white"
-              onClick={() => void openQrSheet()}
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-                <path
-                  d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm13 2h2v2h-2v-2zm-2-2h2v2h-2v-2zm4 4h2v2h-2v-2zm-4 2h2v2h-2v-2zm4-10h3v3h-3v-3z"
-                  fill="currentColor"
-                />
-              </svg>
-              QR
-            </button>
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-40"
-              onClick={() => void shareCameraLink()}
-              disabled={sharing}
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-                <path
-                  d="M14 3l7 7-7 7-1.4-1.4 4.6-4.6H8a5 5 0 000 10h3v2H8a7 7 0 010-14h9.2l-4.6-4.6L14 3z"
-                  fill="currentColor"
-                />
-              </svg>
-              Share
-            </button>
-          </div>
+          <section className="mt-4 rounded-2xl border border-white/15 bg-black/75 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65">
+                  Shots Remaining
+                </p>
+                <p className="text-2xl font-bold leading-none text-white">
+                  {usage.shotsLimit > 0 ? usage.shotsLeft ?? 0 : "∞"}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white"
+                  onClick={() => void openQrSheet()}
+                >
+                  QR
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                  onClick={() => void shareCameraLink()}
+                  disabled={sharing}
+                >
+                  Share
+                </button>
+              </div>
+
+              <div className="min-w-14 text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65">
+                  Session
+                </p>
+                <p className="text-xs font-semibold text-white">
+                  {sessionTimeLeftLabel || "Live"}
+                </p>
+              </div>
+            </div>
+          </section>
 
           <button
             type="button"
-            className="mt-4 w-full rounded-full border border-white/20 bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white"
+            className="mt-3 w-full rounded-full border border-white/20 bg-white/8 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white"
             onClick={() => setShowFeed((current) => !current)}
           >
             {showFeed ? "Hide Live Event Feed" : "See Live Event Feed"}

@@ -44,8 +44,11 @@ export function getCameraPhotosSheetName() {
 }
 
 export function getDriveCameraEnv() {
+  const primaryCameraFolderId = (process.env.GOOGLE_DRIVE_CAMERA_FOLDER_ID ?? "").trim();
+  const legacyCameraFolderId = (process.env.GOOGLE_DRIVE_FOLDER_ID ?? "").trim();
+
   return {
-    folderId: (process.env.GOOGLE_DRIVE_CAMERA_FOLDER_ID ?? "").trim(),
+    folderId: primaryCameraFolderId || legacyCameraFolderId,
     sharedDriveId: (process.env.GOOGLE_DRIVE_SHARED_DRIVE_ID ?? "").trim(),
     originalsFolderName:
       (process.env.GOOGLE_DRIVE_CAMERA_ORIGINALS_FOLDER_NAME ?? "").trim() || "originals",
