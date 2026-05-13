@@ -57,6 +57,10 @@ function makeAutoSubmitStorageKey(eventId: string) {
   return `rj_camera_auto_submit_${eventId}`;
 }
 
+function makeGuestNameStorageKey(eventId: string) {
+  return `rj_camera_guest_name_${eventId}`;
+}
+
 function readOrCreateDeviceId(eventId: string) {
   const key = makeDeviceStorageKey(eventId);
   const existing = window.localStorage.getItem(key);
@@ -115,9 +119,11 @@ export default function CameraLandingPage() {
     shotsLeft: 27,
   });
   const [uploaderName, setUploaderName] = useState("");
+  const [guestNameDraft, setGuestNameDraft] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [pendingShotFile, setPendingShotFile] = useState<File | null>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [showGuestNameModal, setShowGuestNameModal] = useState(false);
   const [autoSubmitConfirmed, setAutoSubmitConfirmed] = useState<boolean>(() => {
     if (typeof window === "undefined" || !eventId) return false;
     try {
@@ -166,6 +172,7 @@ export default function CameraLandingPage() {
     () => (selectedFile ? URL.createObjectURL(selectedFile) : ""),
     [selectedFile],
   );
+  const normalizedGuestName = uploaderName.trim();
 
   const stopCamera = useCallback((manualClose = false) => {
     const stream = streamRef.current;
@@ -213,6 +220,38 @@ export default function CameraLandingPage() {
       setFeedback("Unable to load gallery right now.");
     }
   }, [cameraToken, deviceId, eventId, settings.cameraShotLimitPerInvite]);
+
+  const saveGuestName = useCallback(
+    (inputName: string) => {
+      const cleanName = inputName.trim().slice(0, 120);
+      if (!cleanName) {
+        setFeedback("Please enter your name before taking a photo.");
+        return false;
+      }
+
+      setUploaderName(cleanName);
+      setGuestNameDraft(cleanName);
+      if (eventId) {
+        try {
+          window.localStorage.setItem(makeGuestNameStorageKey(eventId), cleanName);
+        } catch {
+          // Ignore localStorage write errors.
+        }
+      }
+      setShowGuestNameModal(false);
+      setFeedback("");
+      return true;
+    },
+    [eventId],
+  );
+
+  const ensureGuestName = useCallback(() => {
+    if (normalizedGuestName) return true;
+    setGuestNameDraft("");
+    setShowGuestNameModal(true);
+    setFeedback("Please enter your name before taking a photo.");
+    return false;
+  }, [normalizedGuestName]);
 
   const startCamera = useCallback(
     async (preferredFacing: CameraFacing = cameraFacing) => {
@@ -301,7 +340,7 @@ export default function CameraLandingPage() {
       formData.set("eventId", eventId);
       formData.set("cameraToken", cameraToken);
       formData.set("deviceId", deviceId);
-      formData.set("uploaderName", uploaderName.trim() || "Guest");
+      formData.set("uploaderName", normalizedGuestName || "Guest");
       formData.set("file", fileToUpload, fileToUpload.name);
 
       const response = await fetch("/api/camera/upload", {
@@ -351,6 +390,8 @@ export default function CameraLandingPage() {
   }
 
   async function captureShot() {
+    if (!ensureGuestName()) return;
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !cameraOpen) {
@@ -399,6 +440,8 @@ export default function CameraLandingPage() {
 
   async function onUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!ensureGuestName()) return;
+
     if (!selectedFile) {
       setFeedback("Please capture or pick a photo first.");
       return;
@@ -543,6 +586,14 @@ export default function CameraLandingPage() {
 
         if (!cancelled) {
           setDeviceId(device);
+          let persistedGuestName = "";
+          try {
+            persistedGuestName = window.localStorage
+              .getItem(makeGuestNameStorageKey(eventId))
+              ?.trim() ?? "";
+          } catch {
+            persistedGuestName = "";
+          }
           setSettings({
             cameraEnabled: Boolean(payload.settings?.cameraEnabled),
             cameraRequireApproval: Boolean(payload.settings?.cameraRequireApproval),
@@ -562,9 +613,8 @@ export default function CameraLandingPage() {
             cameraStartButtonLabel:
               payload.settings?.cameraStartButtonLabel ?? "Start Camera",
           });
-          setUploaderName(
-            payload.access?.tableCode ? `Guest (${payload.access.tableCode})` : "Guest",
-          );
+          setUploaderName(persistedGuestName);
+          setGuestNameDraft(persistedGuestName);
         }
       } catch {
         if (!cancelled) {
@@ -726,6 +776,8 @@ export default function CameraLandingPage() {
   }
 
   const galleryUnlockMessage = resolveGalleryUnlockMessage(settings);
+  const isGuestNameModalVisible =
+    showGuestNameModal || (!showLandingScreen && !normalizedGuestName);
 
   return (
     <main className="min-h-screen bg-[#090909] text-white">
@@ -872,8 +924,42 @@ export default function CameraLandingPage() {
               </div>
             ) : null}
 
+            {isGuestNameModalVisible ? (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/55 px-6">
+                <form
+                  className="w-full max-w-xs rounded-2xl border border-white/25 bg-black/85 p-4 backdrop-blur-sm"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    saveGuestName(guestNameDraft);
+                  }}
+                >
+                  <p className="text-center text-lg font-semibold text-white">Your name</p>
+                  <p className="mt-2 text-center text-xs leading-relaxed text-white/80">
+                    We will label your captured photos with this name.
+                  </p>
+                  <label className="mt-4 block text-xs text-white/75">
+                    <span>Guest name</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-white/25 bg-black/45 px-3 py-2 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/50"
+                      value={guestNameDraft}
+                      onChange={(event) => setGuestNameDraft(event.target.value)}
+                      placeholder="Enter your name"
+                      maxLength={120}
+                      autoFocus
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="mt-4 w-full rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black"
+                  >
+                    Continue
+                  </button>
+                </form>
+              </div>
+            ) : null}
+
             {showQrSheet ? (
-              <div className="absolute inset-0 z-30 flex items-end bg-black/50 p-3">
+              <div className="absolute inset-0 z-40 flex items-end bg-black/50 p-3">
                 <div className="w-full rounded-3xl border border-white/20 bg-[#2c2940] p-4 shadow-2xl backdrop-blur-sm">
                   <div className="flex items-center justify-between">
                     <button
