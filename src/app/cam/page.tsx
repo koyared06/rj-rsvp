@@ -1029,7 +1029,7 @@ export default function CameraLandingPage() {
               </div>
             ) : null}
 
-            <div className="absolute inset-x-0 bottom-5 z-10 px-4">
+            <div className="absolute inset-x-0 bottom-2 z-10 px-4">
               <div className="mx-auto max-w-sm">
                 <div className="mb-3 grid grid-cols-3 items-center gap-2">
                   <div className="flex justify-start">
@@ -1128,7 +1128,9 @@ export default function CameraLandingPage() {
                           <img
                             src={previewUrl}
                             alt="Latest shot preview"
-                            className="h-full w-full object-cover"
+                            className={`h-full w-full object-cover transition duration-300 ${
+                              uploading ? "scale-105 blur-[2px] opacity-80" : ""
+                            }`}
                           />
                         ) : (
                           <span className="inline-flex h-full w-full items-center justify-center text-[10px] text-white/75">
@@ -1218,11 +1220,6 @@ export default function CameraLandingPage() {
             </section>
           ) : null}
 
-          {feedback ? (
-            <p className="mt-3 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/85">
-              {feedback}
-            </p>
-          ) : null}
         </div>
       )}
     </main>
