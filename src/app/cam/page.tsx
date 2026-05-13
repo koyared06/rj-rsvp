@@ -34,6 +34,9 @@ type CameraUsage = {
   shotsLeft: number | null;
 };
 type CameraFacing = "environment" | "user";
+type GalleryFilterMode = "all" | "mine" | "capturer";
+
+const ADMIN_SESSION_KEY = "rj_admin_session_v1";
 
 const DEFAULT_SETTINGS: CameraSessionSettings = {
   cameraEnabled: false,
@@ -125,10 +128,23 @@ export default function CameraLandingPage() {
   const [cameraPermissionFailed, setCameraPermissionFailed] = useState(false);
   const [showFallbackUpload, setShowFallbackUpload] = useState(false);
   const [showGallerySheet, setShowGallerySheet] = useState(false);
+  const [galleryFilterMode, setGalleryFilterMode] = useState<GalleryFilterMode>("all");
+  const [selectedCapturer, setSelectedCapturer] = useState("");
+  const [downloadingGallery, setDownloadingGallery] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
-  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [flashEnabled, setFlashEnabled] = useState(false);
+  const [flashPulse, setFlashPulse] = useState(false);
   const [zoomOptions, setZoomOptions] = useState<number[]>([1]);
   const [selectedZoom, setSelectedZoom] = useState(1);
+  const [adminToken] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return window.sessionStorage.getItem(ADMIN_SESSION_KEY)?.trim() ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [guestNameError, setGuestNameError] = useState("");
   const [started, setStarted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -159,6 +175,7 @@ export default function CameraLandingPage() {
     [selectedFile],
   );
   const normalizedGuestName = uploaderName.trim();
+  const isAdminViewer = Boolean(adminToken.trim());
 
   const stopCamera = useCallback((manualClose = false) => {
     const stream = streamRef.current;
@@ -172,7 +189,6 @@ export default function CameraLandingPage() {
     if (manualClose) {
       setKeepCameraActive(false);
     }
-    setTorchEnabled(false);
     setCameraOpen(false);
   }, []);
 
@@ -192,7 +208,13 @@ export default function CameraLandingPage() {
         t: cameraToken,
         device: deviceId,
       });
-      const response = await fetch(`/api/camera/list?${params.toString()}`);
+      const response = await fetch(`/api/camera/list?${params.toString()}`, {
+        headers: adminToken
+          ? {
+              "x-admin-token": adminToken,
+            }
+          : undefined,
+      });
       const payload = await response.json();
       if (!response.ok) {
         setFeedback(payload.error ?? "Unable to load gallery.");
@@ -213,16 +235,18 @@ export default function CameraLandingPage() {
     } catch {
       setFeedback("Unable to load gallery right now.");
     }
-  }, [cameraToken, deviceId, eventId, settings.cameraShotLimitPerInvite]);
+  }, [adminToken, cameraToken, deviceId, eventId, settings.cameraShotLimitPerInvite]);
 
   const saveGuestName = useCallback(
     (inputName: string) => {
       const cleanName = inputName.trim().slice(0, 120);
       if (!cleanName) {
+        setGuestNameError("Guest name is required.");
         setFeedback("Please enter your name before taking a photo.");
         return false;
       }
 
+      setGuestNameError("");
       setUploaderName(cleanName);
       setGuestNameDraft(cleanName);
       if (eventId) {
@@ -242,6 +266,7 @@ export default function CameraLandingPage() {
   const ensureGuestName = useCallback(() => {
     if (normalizedGuestName) return true;
     setGuestNameDraft("");
+    setGuestNameError("Guest name is required.");
     setShowGuestNameModal(true);
     setFeedback("Please enter your name before taking a photo.");
     return false;
@@ -388,6 +413,7 @@ export default function CameraLandingPage() {
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    const track = streamRef.current?.getVideoTracks?.()[0];
     if (!video || !canvas || !cameraOpen) {
       setFeedback("Camera is not ready.");
       return;
@@ -407,7 +433,38 @@ export default function CameraLandingPage() {
       setFeedback("Unable to process camera frame.");
       return;
     }
+
+    const canUseTorchFlash = Boolean(torchSupported && track);
+    if (flashEnabled) {
+      setFlashPulse(true);
+      if (canUseTorchFlash && track) {
+        try {
+          await track.applyConstraints({
+            advanced: [{ torch: true } as MediaTrackConstraintSet],
+          });
+          await new Promise((resolve) => window.setTimeout(resolve, 90));
+        } catch {
+          // Ignore torch failures and keep software flash pulse only.
+        }
+      } else {
+        await new Promise((resolve) => window.setTimeout(resolve, 70));
+      }
+    }
+
     context.drawImage(video, 0, 0, width, height);
+
+    if (flashEnabled && canUseTorchFlash && track) {
+      try {
+        await track.applyConstraints({
+          advanced: [{ torch: false } as MediaTrackConstraintSet],
+        });
+      } catch {
+        // Ignore torch reset failures.
+      }
+    }
+    if (flashEnabled) {
+      window.setTimeout(() => setFlashPulse(false), 120);
+    }
 
     const blob = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, "image/jpeg", 0.95);
@@ -514,20 +571,8 @@ export default function CameraLandingPage() {
     }
   }
 
-  async function toggleFlash() {
-    const stream = streamRef.current;
-    const track = stream?.getVideoTracks?.()[0];
-    if (!track) return;
-
-    const nextValue = !torchEnabled;
-    try {
-      await track.applyConstraints({
-        advanced: [{ torch: nextValue } as MediaTrackConstraintSet],
-      });
-      setTorchEnabled(nextValue);
-    } catch {
-      setFeedback("Flash/torch is not available on this camera.");
-    }
+  function toggleFlashOption() {
+    setFlashEnabled((current) => !current);
   }
 
   useEffect(() => {
@@ -746,8 +791,83 @@ export default function CameraLandingPage() {
   }
 
   const galleryUnlockMessage = resolveGalleryUnlockMessage(settings);
+  const galleryUnlockAt = (() => {
+    const date = settings.cameraGalleryUnlockDate.trim();
+    const time = settings.cameraGalleryUnlockTime.trim() || "00:00";
+    if (!date) return null;
+    const value = new Date(`${date}T${time}:00`);
+    if (Number.isNaN(value.getTime())) return null;
+    return value;
+  })();
+  const isGalleryLockedForViewer =
+    !isAdminViewer &&
+    Boolean(galleryUnlockAt && galleryUnlockAt.getTime() > Date.now());
+  const capturerOptions = Array.from(
+    new Set(
+      galleryItems
+        .map((item) => item.uploaderName.trim())
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+  const filteredGalleryItems = (() => {
+    if (galleryFilterMode === "mine") {
+      return galleryItems.filter(
+        (item) =>
+          item.isOwnPhoto ||
+          (normalizedGuestName &&
+            item.uploaderName.trim().toLowerCase() ===
+              normalizedGuestName.toLowerCase()),
+      );
+    }
+    if (galleryFilterMode === "capturer") {
+      const selected = selectedCapturer.trim().toLowerCase();
+      if (!selected) return galleryItems;
+      return galleryItems.filter(
+        (item) => item.uploaderName.trim().toLowerCase() === selected,
+      );
+    }
+    return galleryItems;
+  })();
   const isGuestNameModalVisible =
     showGuestNameModal || (!showLandingScreen && !normalizedGuestName);
+
+  async function downloadFilteredGallery() {
+    if (filteredGalleryItems.length === 0 || downloadingGallery) return;
+    setDownloadingGallery(true);
+
+    try {
+      const safeEvent = (settings.cameraEventTitle || "event")
+        .replace(/[^a-z0-9-_]+/gi, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40)
+        .toLowerCase();
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+      for (let index = 0; index < filteredGalleryItems.length; index += 1) {
+        const item = filteredGalleryItems[index];
+        const response = await fetch(item.imageUrl);
+        if (!response.ok) continue;
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const fileName = `${safeEvent || "event"}-${index + 1}-${item.uploaderName
+          .replace(/[^a-z0-9-_]+/gi, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 28)
+          .toLowerCase()}-${stamp}.jpg`;
+
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(objectUrl);
+        await new Promise((resolve) => window.setTimeout(resolve, 140));
+      }
+    } finally {
+      setDownloadingGallery(false);
+    }
+  }
 
   return (
     <main className="h-[100dvh] overflow-hidden bg-[#090909] text-white">
@@ -796,6 +916,9 @@ export default function CameraLandingPage() {
 
             <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/80 to-transparent" />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black/90 via-black/55 to-transparent" />
+            {flashPulse ? (
+              <div className="pointer-events-none absolute inset-0 z-[5] bg-white/70 mix-blend-screen" />
+            ) : null}
 
             <div className="relative z-10 flex items-start justify-between p-4">
               <button
@@ -879,14 +1002,27 @@ export default function CameraLandingPage() {
                   <label className="mt-4 block text-xs text-white/75">
                     <span>Guest name</span>
                     <input
-                      className="mt-1 w-full rounded-lg border border-white/25 bg-black/45 px-3 py-2 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/50"
+                      className={`mt-1 w-full rounded-lg bg-black/45 px-3 py-2 text-sm text-white outline-none placeholder:text-white/45 focus:border-white/50 ${
+                        guestNameError ? "border border-rose-400/90" : "border border-white/25"
+                      }`}
                       value={guestNameDraft}
-                      onChange={(event) => setGuestNameDraft(event.target.value)}
+                      onChange={(event) => {
+                        setGuestNameDraft(event.target.value);
+                        if (guestNameError) setGuestNameError("");
+                      }}
+                      onInvalid={(event) =>
+                        event.currentTarget.setCustomValidity("Guest name is required.")
+                      }
+                      onInput={(event) => event.currentTarget.setCustomValidity("")}
                       placeholder="Enter your name"
                       maxLength={120}
+                      required
                       autoFocus
                     />
                   </label>
+                  {guestNameError ? (
+                    <p className="mt-2 text-xs text-rose-300">{guestNameError}</p>
+                  ) : null}
                   <button
                     type="submit"
                     className="mt-4 w-full rounded-lg bg-white px-3 py-2 text-sm font-semibold text-black"
@@ -965,14 +1101,14 @@ export default function CameraLandingPage() {
                     <button
                       type="button"
                       className="flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/50 text-white disabled:opacity-40"
-                      onClick={() => void toggleFlash()}
-                      disabled={!cameraOpen || !torchSupported}
+                      onClick={() => toggleFlashOption()}
+                      disabled={!cameraOpen}
                       aria-label="Toggle flash"
                     >
                       <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
                         <path
                           d="M11 2L5 13h5l-1 9 10-13h-6l2-7h-4z"
-                          fill={torchEnabled ? "currentColor" : "none"}
+                          fill={flashEnabled ? "currentColor" : "none"}
                           stroke="currentColor"
                           strokeWidth="1.6"
                         />
@@ -1024,7 +1160,7 @@ export default function CameraLandingPage() {
                   <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
                     <div className="flex min-w-0 items-end justify-start gap-2 pr-2">
                       <p className="text-4xl font-extrabold leading-none text-white">
-                        {usage.shotsLimit > 0 ? usage.shotsLeft ?? 0 : "∞"}
+                        {usage.shotsLimit > 0 ? usage.shotsLeft ?? 0 : "Unlimited"}
                       </p>
                       <p className="pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/85">
                         Shots Remaining
@@ -1074,41 +1210,160 @@ export default function CameraLandingPage() {
             </div>
 
             {showGallerySheet ? (
-              <div className="absolute inset-0 z-30 flex items-end bg-black/55 p-3">
-                <div className="w-full rounded-3xl border border-white/20 bg-[#171822] p-4 shadow-2xl">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-white">Event Gallery</p>
+              <div className="absolute inset-0 z-40 flex h-full flex-col bg-black">
+                <div className="relative h-56 overflow-hidden">
+                  {filteredGalleryItems[0]?.imageUrl ? (
+                    <img
+                      src={filteredGalleryItems[0].imageUrl}
+                      alt="Gallery cover"
+                      className={`h-full w-full object-cover ${
+                        isGalleryLockedForViewer ? "blur-md brightness-75" : "brightness-75"
+                      }`}
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-[radial-gradient(circle_at_top,_#454545_0%,_#121212_52%,_#060606_100%)]" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-black/10" />
+                  <div className="absolute inset-x-4 top-4 flex items-center justify-between">
                     <button
                       type="button"
-                      className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs text-white"
+                      className="rounded-full border border-white/30 bg-black/40 px-3 py-1 text-xs text-white"
                       onClick={() => setShowGallerySheet(false)}
                     >
-                      Close
+                      Back
                     </button>
+                    <span className="text-xs text-white/80">
+                      {filteredGalleryItems.length} photo
+                      {filteredGalleryItems.length === 1 ? "" : "s"}
+                    </span>
                   </div>
-                  {galleryUnlockMessage ? (
-                    <p className="mt-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80">
-                      {galleryUnlockMessage}
+                  <div className="absolute inset-x-4 bottom-4">
+                    <p className="text-3xl font-semibold text-white drop-shadow">
+                      {settings.cameraEventTitle}
                     </p>
+                    <p className="mt-1 text-sm text-white/80">
+                      {capturerOptions.length} participant
+                      {capturerOptions.length === 1 ? "" : "s"}
+                    </p>
+                    {galleryUnlockMessage ? (
+                      <p className="mt-2 text-xs text-white/75">{galleryUnlockMessage}</p>
+                    ) : null}
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/25 bg-white/20 px-4 py-2 text-sm font-semibold text-white"
+                        onClick={() => {
+                          setShowGallerySheet(false);
+                          setShowFallbackUpload(true);
+                        }}
+                      >
+                        Upload
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/25 bg-white/20 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                        onClick={() => void downloadFilteredGallery()}
+                        disabled={downloadingGallery || filteredGalleryItems.length === 0}
+                      >
+                        {downloadingGallery ? "Exporting..." : "Export"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-4 pb-24 pt-4">
+                  {galleryFilterMode === "capturer" ? (
+                    <div className="mb-3">
+                      <label className="text-xs text-white/70">Choose a Capturer</label>
+                      <select
+                        className="mt-1 w-full rounded-xl border border-white/20 bg-black/45 px-3 py-2 text-sm text-white"
+                        value={selectedCapturer}
+                        onChange={(event) => setSelectedCapturer(event.target.value)}
+                      >
+                        <option value="">All Capturers</option>
+                        {capturerOptions.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   ) : null}
-                  {galleryItems.length === 0 ? (
-                    <p className="mt-3 rounded-lg border border-dashed border-white/20 px-3 py-2 text-sm text-white/70">
+
+                  {filteredGalleryItems.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-white/20 px-3 py-2 text-sm text-white/70">
                       No photos yet.
                     </p>
                   ) : (
-                    <div className="mt-3 grid max-h-80 grid-cols-3 gap-2 overflow-auto pr-1">
-                      {galleryItems.map((item) => (
-                        <article key={item.id} className="overflow-hidden rounded-lg border border-white/10">
+                    <div className="grid grid-cols-2 gap-3">
+                      {filteredGalleryItems.map((item) => (
+                        <article
+                          key={item.id}
+                          className="overflow-hidden rounded-2xl border border-white/10 bg-black/35"
+                        >
                           <img
                             src={item.imageUrl}
                             alt={`Photo by ${item.uploaderName}`}
-                            className="h-24 w-full object-cover"
+                            className={`h-52 w-full object-cover ${
+                              isGalleryLockedForViewer ? "blur-md brightness-75" : ""
+                            }`}
                             loading="lazy"
                           />
+                          <div className="px-3 py-2">
+                            <p className="truncate text-xs text-white/85">{item.uploaderName}</p>
+                            <p className="truncate text-[10px] text-white/60">{item.createdAt}</p>
+                          </div>
                         </article>
                       ))}
                     </div>
                   )}
+                </div>
+
+                {isGalleryLockedForViewer ? (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
+                    <div className="rounded-2xl border border-white/20 bg-black/75 px-4 py-3 text-center">
+                      <p className="text-sm font-semibold text-white">Gallery is locked</p>
+                      <p className="mt-1 text-xs text-white/75">
+                        Photos will fully unlock based on your admin unlock schedule.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="absolute inset-x-0 bottom-0 grid grid-cols-3 border-t border-white/10 bg-black/90 px-2 py-2 text-sm">
+                  <button
+                    type="button"
+                    className={`rounded-xl px-2 py-2 ${
+                      galleryFilterMode === "all"
+                        ? "text-lime-300 underline decoration-2 underline-offset-4"
+                        : "text-white/70"
+                    }`}
+                    onClick={() => setGalleryFilterMode("all")}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-xl px-2 py-2 ${
+                      galleryFilterMode === "mine"
+                        ? "text-lime-300 underline decoration-2 underline-offset-4"
+                        : "text-white/70"
+                    }`}
+                    onClick={() => setGalleryFilterMode("mine")}
+                  >
+                    My Capture
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-xl px-2 py-2 ${
+                      galleryFilterMode === "capturer"
+                        ? "text-lime-300 underline decoration-2 underline-offset-4"
+                        : "text-white/70"
+                    }`}
+                    onClick={() => setGalleryFilterMode("capturer")}
+                  >
+                    Choose a Capturer
+                  </button>
                 </div>
               </div>
             ) : null}
