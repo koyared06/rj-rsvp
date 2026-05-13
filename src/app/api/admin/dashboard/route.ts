@@ -68,6 +68,17 @@ export async function GET(request: NextRequest) {
         weddingDate: weddingSettings.weddingDate,
         weddingTime: weddingSettings.weddingTime,
         showCountdown: weddingSettings.showCountdown,
+        cameraEnabled: weddingSettings.cameraEnabled,
+        cameraRequireApproval: weddingSettings.cameraRequireApproval,
+        cameraGalleryUnlockDate: weddingSettings.cameraGalleryUnlockDate,
+        cameraGalleryUnlockTime: weddingSettings.cameraGalleryUnlockTime,
+        cameraMaxUploadMb: weddingSettings.cameraMaxUploadMb,
+        cameraShotLimitPerInvite: weddingSettings.cameraShotLimitPerInvite,
+        cameraLandingEnabled: weddingSettings.cameraLandingEnabled,
+        cameraEventTitle: weddingSettings.cameraEventTitle,
+        cameraEventSubtitle: weddingSettings.cameraEventSubtitle,
+        cameraCoverImageUrl: weddingSettings.cameraCoverImageUrl,
+        cameraStartButtonLabel: weddingSettings.cameraStartButtonLabel,
         countdownDays: calculateCountdownDays(weddingSettings.weddingDate),
       },
     });
@@ -105,10 +116,33 @@ export async function PATCH(request: NextRequest) {
     const weddingDate = parsed.data.weddingDate;
     const weddingTime = parsed.data.weddingTime ?? currentSettings.weddingTime;
     const showCountdown = parsed.data.showCountdown ?? currentSettings.showCountdown;
+    const cameraEnabled = parsed.data.cameraEnabled ?? currentSettings.cameraEnabled;
+    const cameraRequireApproval =
+      parsed.data.cameraRequireApproval ?? currentSettings.cameraRequireApproval;
+    const cameraGalleryUnlockDate =
+      parsed.data.cameraGalleryUnlockDate ?? currentSettings.cameraGalleryUnlockDate;
+    const cameraGalleryUnlockTime =
+      parsed.data.cameraGalleryUnlockTime ?? currentSettings.cameraGalleryUnlockTime;
+    const cameraMaxUploadMb =
+      parsed.data.cameraMaxUploadMb ?? currentSettings.cameraMaxUploadMb;
+    const cameraShotLimitPerInvite =
+      parsed.data.cameraShotLimitPerInvite ?? currentSettings.cameraShotLimitPerInvite;
+
     await saveWeddingSettings({
       weddingDate,
       weddingTime,
       showCountdown,
+      cameraEnabled,
+      cameraRequireApproval,
+      cameraGalleryUnlockDate,
+      cameraGalleryUnlockTime,
+      cameraMaxUploadMb,
+      cameraShotLimitPerInvite,
+      cameraLandingEnabled: currentSettings.cameraLandingEnabled,
+      cameraEventTitle: currentSettings.cameraEventTitle,
+      cameraEventSubtitle: currentSettings.cameraEventSubtitle,
+      cameraCoverImageUrl: currentSettings.cameraCoverImageUrl,
+      cameraStartButtonLabel: currentSettings.cameraStartButtonLabel,
     });
     const updatedSettings = await readWeddingSettings();
 
@@ -118,6 +152,17 @@ export async function PATCH(request: NextRequest) {
         weddingDate: updatedSettings.weddingDate,
         weddingTime: updatedSettings.weddingTime,
         showCountdown: updatedSettings.showCountdown,
+        cameraEnabled: updatedSettings.cameraEnabled,
+        cameraRequireApproval: updatedSettings.cameraRequireApproval,
+        cameraGalleryUnlockDate: updatedSettings.cameraGalleryUnlockDate,
+        cameraGalleryUnlockTime: updatedSettings.cameraGalleryUnlockTime,
+        cameraMaxUploadMb: updatedSettings.cameraMaxUploadMb,
+        cameraShotLimitPerInvite: updatedSettings.cameraShotLimitPerInvite,
+        cameraLandingEnabled: updatedSettings.cameraLandingEnabled,
+        cameraEventTitle: updatedSettings.cameraEventTitle,
+        cameraEventSubtitle: updatedSettings.cameraEventSubtitle,
+        cameraCoverImageUrl: updatedSettings.cameraCoverImageUrl,
+        cameraStartButtonLabel: updatedSettings.cameraStartButtonLabel,
         countdownDays: calculateCountdownDays(updatedSettings.weddingDate),
       },
     });

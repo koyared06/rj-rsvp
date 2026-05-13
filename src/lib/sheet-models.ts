@@ -26,6 +26,26 @@ export type RsvpRow = {
   source: string;
 };
 
+export type CameraPhotoStatus = "pending" | "approved" | "hidden" | "rejected";
+
+export type CameraPhotoRow = {
+  rowNumber: number;
+  id: string;
+  createdAt: string;
+  inviteCode: string;
+  uploaderName: string;
+  driveFileId: string;
+  previewDriveFileId: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  width: number;
+  height: number;
+  status: CameraPhotoStatus;
+  visibilityAt: string;
+  rejectionReason: string;
+  hiddenAt: string;
+};
+
 export type EntourageSide = "bride" | "groom" | "none";
 
 export type EntourageCategoryRow = {
@@ -71,6 +91,14 @@ function normalizeEntourageSide(value: string | undefined): EntourageSide {
   if (normalized === "bride") return "bride";
   if (normalized === "groom") return "groom";
   return "none";
+}
+
+function normalizeCameraPhotoStatus(value: string | undefined): CameraPhotoStatus {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (normalized === "approved") return "approved";
+  if (normalized === "hidden") return "hidden";
+  if (normalized === "rejected") return "rejected";
+  return "pending";
 }
 
 function cell(row: string[], index: number) {
@@ -152,6 +180,26 @@ export function toRsvpRow(row: string[], rowNumber: number): RsvpRow {
   };
 }
 
+export function toCameraPhotoRow(row: string[], rowNumber: number): CameraPhotoRow {
+  return {
+    rowNumber,
+    id: cell(row, 0),
+    createdAt: cell(row, 1),
+    inviteCode: cell(row, 2),
+    uploaderName: cell(row, 3),
+    driveFileId: cell(row, 4),
+    previewDriveFileId: cell(row, 5),
+    mimeType: cell(row, 6),
+    fileSizeBytes: normalizeNumber(cell(row, 7), 0),
+    width: normalizeNumber(cell(row, 8), 0),
+    height: normalizeNumber(cell(row, 9), 0),
+    status: normalizeCameraPhotoStatus(cell(row, 10)),
+    visibilityAt: cell(row, 11),
+    rejectionReason: cell(row, 12),
+    hiddenAt: cell(row, 13),
+  };
+}
+
 export function guestToArray(guest: Omit<GuestRow, "rowNumber">): string[] {
   return [
     guest.id,
@@ -163,6 +211,25 @@ export function guestToArray(guest: Omit<GuestRow, "rowNumber">): string[] {
     guest.status,
     guest.lastUpdated,
     guest.notes,
+  ];
+}
+
+export function cameraPhotoToArray(photo: Omit<CameraPhotoRow, "rowNumber">): string[] {
+  return [
+    photo.id,
+    photo.createdAt,
+    photo.inviteCode,
+    photo.uploaderName,
+    photo.driveFileId,
+    photo.previewDriveFileId,
+    photo.mimeType,
+    String(photo.fileSizeBytes),
+    String(photo.width),
+    String(photo.height),
+    photo.status,
+    photo.visibilityAt,
+    photo.rejectionReason,
+    photo.hiddenAt,
   ];
 }
 

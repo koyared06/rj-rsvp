@@ -39,7 +39,30 @@ type AccessSettings = {
   weddingDate: string;
   weddingTime: string;
   showCountdown: boolean;
+  cameraEnabled: boolean;
+  cameraRequireApproval: boolean;
+  cameraGalleryUnlockDate: string;
+  cameraGalleryUnlockTime: string;
+  cameraMaxUploadMb: number;
+  cameraShotLimitPerInvite: number;
   countdownDays: number | null;
+};
+
+type CameraGalleryItem = {
+  id: string;
+  createdAt: string;
+  inviteCode: string;
+  uploaderName: string;
+  status: "pending" | "approved" | "hidden" | "rejected" | string;
+  isOwnPhoto: boolean;
+  visibilityAt: string;
+  imageUrl: string;
+};
+
+type CameraUsage = {
+  shotsUsed: number;
+  shotsLimit: number;
+  shotsLeft: number | null;
 };
 
 type CountdownParts = {
@@ -176,7 +199,6 @@ function normalizeGuestCountInput(
 
 export default function Home() {
   const router = useRouter();
-  const accessCheckedRef = useRef(false);
   const [inviteCode, setInviteCode] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [accessLoading, setAccessLoading] = useState(true);
@@ -185,6 +207,12 @@ export default function Home() {
     weddingDate: DEFAULT_WEDDING_DATE,
     weddingTime: DEFAULT_WEDDING_TIME,
     showCountdown: true,
+    cameraEnabled: false,
+    cameraRequireApproval: false,
+    cameraGalleryUnlockDate: "",
+    cameraGalleryUnlockTime: "",
+    cameraMaxUploadMb: 3,
+    cameraShotLimitPerInvite: 27,
     countdownDays: null,
   });
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -209,6 +237,22 @@ export default function Home() {
   const [entourageCategories, setEntourageCategories] = useState<EntourageCategory[]>([]);
   const [activeGallerySlideIndex, setActiveGallerySlideIndex] = useState(0);
   const [activeFeaturedPhotoIndex, setActiveFeaturedPhotoIndex] = useState<number | null>(null);
+  const [cameraUploaderName, setCameraUploaderName] = useState("");
+  const [cameraSelectedFile, setCameraSelectedFile] = useState<File | null>(null);
+  const [cameraGalleryItems, setCameraGalleryItems] = useState<CameraGalleryItem[]>([]);
+  const [cameraGalleryLoading, setCameraGalleryLoading] = useState(false);
+  const [cameraUploading, setCameraUploading] = useState(false);
+  const [cameraFeedback, setCameraFeedback] = useState("");
+  const [cameraUsage, setCameraUsage] = useState<CameraUsage>({
+    shotsUsed: 0,
+    shotsLimit: 27,
+    shotsLeft: 27,
+  });
+  const [cameraCaptureActive, setCameraCaptureActive] = useState(false);
+  const [cameraCaptureError, setCameraCaptureError] = useState("");
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const isClientMounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -321,6 +365,15 @@ export default function Home() {
     activeFeaturedPhotoIndex !== null
       ? GALLERY_FEATURED_PHOTOS[activeFeaturedPhotoIndex] ?? null
       : null;
+  const cameraPreviewUrl = useMemo(
+    () => (cameraSelectedFile ? URL.createObjectURL(cameraSelectedFile) : ""),
+    [cameraSelectedFile],
+  );
+  const cameraHasShotLimit = cameraUsage.shotsLimit > 0;
+  const cameraCanCaptureMoreShots =
+    !cameraHasShotLimit ||
+    cameraUsage.shotsLeft === null ||
+    cameraUsage.shotsLeft > 0;
   const bestManIndex = entourageCategories.findIndex((item) => isBestManCategory(item));
   const maidOfHonorIndex = entourageCategories.findIndex((item) => isMaidOfHonorCategory(item));
   const hasCombinedHonorRoles = bestManIndex >= 0 && maidOfHonorIndex >= 0;
@@ -342,9 +395,103 @@ export default function Home() {
     setActiveGallerySlideIndex((current) => (current + 1) % totalGallerySlides);
   }, [totalGallerySlides]);
 
+  useEffect(
+    () => () => {
+      if (cameraPreviewUrl) {
+        URL.revokeObjectURL(cameraPreviewUrl);
+      }
+    },
+    [cameraPreviewUrl],
+  );
+
   const jumpToGallerySlide = useCallback((index: number) => {
     setActiveGallerySlideIndex(index);
   }, []);
+
+  const stopCameraCapture = useCallback(() => {
+    const stream = cameraStreamRef.current;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
+    }
+
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+
+    setCameraCaptureActive(false);
+  }, []);
+
+  const startCameraCapture = useCallback(async () => {
+    if (!cameraCanCaptureMoreShots) {
+      setCameraCaptureError("Shot limit reached for this invitation.");
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setCameraCaptureError("Camera access is not supported on this browser.");
+      return;
+    }
+
+    try {
+      setCameraCaptureError("");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+
+      cameraStreamRef.current = stream;
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
+        await cameraVideoRef.current.play();
+      }
+      setCameraCaptureActive(true);
+    } catch {
+      setCameraCaptureError("Camera access was blocked. Please allow camera permission.");
+      setCameraCaptureActive(false);
+    }
+  }, [cameraCanCaptureMoreShots]);
+
+  const captureCameraFrame = useCallback(async () => {
+    const video = cameraVideoRef.current;
+    const canvas = cameraCanvasRef.current;
+
+    if (!video || !canvas || !cameraCaptureActive) {
+      setCameraCaptureError("Camera is not ready yet.");
+      return;
+    }
+
+    const width = video.videoWidth || 0;
+    const height = video.videoHeight || 0;
+    if (width < 1 || height < 1) {
+      setCameraCaptureError("Unable to read camera frame. Try again.");
+      return;
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setCameraCaptureError("Unable to access camera frame processor.");
+      return;
+    }
+    context.drawImage(video, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 0.95);
+    });
+
+    if (!blob) {
+      setCameraCaptureError("Unable to capture photo from camera.");
+      return;
+    }
+
+    const snapshot = new File([blob], `camera-capture-${Date.now()}.jpg`, {
+      type: "image/jpeg",
+    });
+    setCameraSelectedFile(snapshot);
+    setCameraCaptureError("");
+    setCameraFeedback("Photo captured. Review the preview, then upload.");
+  }, [cameraCaptureActive]);
 
   useEffect(() => {
     if (totalGallerySlides <= 1) return;
@@ -356,7 +503,9 @@ export default function Home() {
     return () => window.clearInterval(interval);
   }, [totalGallerySlides]);
 
-  const validateAccess = useCallback(async (invite: string, token: string) => {
+  useEffect(() => () => stopCameraCapture(), [stopCameraCapture]);
+
+  async function validateAccess(invite: string, token: string) {
     setAccessLoading(true);
     setAccessError("");
 
@@ -371,6 +520,7 @@ export default function Home() {
         const msg = `${payload.error ?? "Invalid invitation link."}${details}`;
         setAccessError(msg);
         setSelectedGuest(null);
+        stopCameraCapture();
         toast.error("Access denied", { description: msg });
         return;
       }
@@ -387,14 +537,52 @@ export default function Home() {
           typeof payload.settings?.showCountdown === "boolean"
             ? payload.settings.showCountdown
             : true,
+        cameraEnabled:
+          typeof payload.settings?.cameraEnabled === "boolean"
+            ? payload.settings.cameraEnabled
+            : false,
+        cameraRequireApproval:
+          typeof payload.settings?.cameraRequireApproval === "boolean"
+            ? payload.settings.cameraRequireApproval
+            : false,
+        cameraGalleryUnlockDate: payload.settings?.cameraGalleryUnlockDate ?? "",
+        cameraGalleryUnlockTime: payload.settings?.cameraGalleryUnlockTime ?? "",
+        cameraMaxUploadMb:
+          typeof payload.settings?.cameraMaxUploadMb === "number"
+            ? payload.settings.cameraMaxUploadMb
+            : 3,
+        cameraShotLimitPerInvite:
+          typeof payload.settings?.cameraShotLimitPerInvite === "number"
+            ? payload.settings.cameraShotLimitPerInvite
+            : 27,
         countdownDays:
           typeof payload.settings?.countdownDays === "number"
             ? payload.settings.countdownDays
             : null,
       });
+      setCameraUploaderName(payload.guest.fullName ?? "");
+      const inviteShotLimit =
+        typeof payload.settings?.cameraShotLimitPerInvite === "number"
+          ? payload.settings.cameraShotLimitPerInvite
+          : 27;
+      setCameraUsage({
+        shotsUsed: 0,
+        shotsLimit: inviteShotLimit,
+        shotsLeft: inviteShotLimit > 0 ? inviteShotLimit : null,
+      });
       setGuestCountInput(String(Math.min(payload.guest.maxGuests, MIN_ATTENDING_GUEST_COUNT)));
       setCompanionNameByIndex({});
       setSubmitAttempted(false);
+      if (payload.settings?.cameraEnabled) {
+        void loadCameraGallery(invite, token);
+      } else {
+        setCameraGalleryItems([]);
+        setCameraUsage({
+          shotsUsed: 0,
+          shotsLimit: inviteShotLimit,
+          shotsLeft: inviteShotLimit > 0 ? inviteShotLimit : null,
+        });
+      }
       toast.success("Invitation verified", {
         description: `Welcome, ${payload.guest.fullName}.`,
       });
@@ -402,13 +590,14 @@ export default function Home() {
       const msg = "Network error validating invitation link.";
       setAccessError(msg);
       setSelectedGuest(null);
+      stopCameraCapture();
       toast.error("Network error", { description: msg });
     } finally {
       setAccessLoading(false);
     }
-  }, []);
+  }
 
-  const loadPublicSettings = useCallback(async () => {
+  async function loadPublicSettings() {
     try {
       const response = await fetch("/api/rsvp/settings");
       const payload = await response.json();
@@ -425,6 +614,24 @@ export default function Home() {
           typeof payload.settings?.showCountdown === "boolean"
             ? payload.settings.showCountdown
             : true,
+        cameraEnabled:
+          typeof payload.settings?.cameraEnabled === "boolean"
+            ? payload.settings.cameraEnabled
+            : false,
+        cameraRequireApproval:
+          typeof payload.settings?.cameraRequireApproval === "boolean"
+            ? payload.settings.cameraRequireApproval
+            : false,
+        cameraGalleryUnlockDate: payload.settings?.cameraGalleryUnlockDate ?? "",
+        cameraGalleryUnlockTime: payload.settings?.cameraGalleryUnlockTime ?? "",
+        cameraMaxUploadMb:
+          typeof payload.settings?.cameraMaxUploadMb === "number"
+            ? payload.settings.cameraMaxUploadMb
+            : 3,
+        cameraShotLimitPerInvite:
+          typeof payload.settings?.cameraShotLimitPerInvite === "number"
+            ? payload.settings.cameraShotLimitPerInvite
+            : 27,
         countdownDays:
           typeof payload.settings?.countdownDays === "number"
             ? payload.settings.countdownDays
@@ -433,9 +640,9 @@ export default function Home() {
     } catch {
       // Best-effort fetch. RSVP access flow still provides settings on valid invite links.
     }
-  }, []);
+  }
 
-  const loadEntourage = useCallback(async () => {
+  async function loadEntourage() {
     try {
       const response = await fetch("/api/rsvp/entourage");
       const payload = await response.json();
@@ -446,12 +653,170 @@ export default function Home() {
     } catch {
       // Best-effort fetch for display section.
     }
-  }, []);
+  }
+
+  async function loadCameraGallery(invite: string, token: string) {
+    if (!invite || !token) return;
+
+    setCameraGalleryLoading(true);
+    try {
+      const response = await fetch(
+        `/api/camera/list?invite=${encodeURIComponent(invite)}&token=${encodeURIComponent(token)}`,
+      );
+      const payload = await response.json();
+      if (!response.ok) {
+        setCameraFeedback(payload.error ?? "Unable to load camera gallery.");
+        return;
+      }
+
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      setCameraGalleryItems(items);
+      const nextUsage: CameraUsage = {
+        shotsUsed:
+          typeof payload.usage?.shotsUsed === "number" ? payload.usage.shotsUsed : 0,
+        shotsLimit:
+          typeof payload.usage?.shotsLimit === "number"
+            ? payload.usage.shotsLimit
+            : settings.cameraShotLimitPerInvite,
+        shotsLeft:
+          typeof payload.usage?.shotsLeft === "number" || payload.usage?.shotsLeft === null
+            ? payload.usage.shotsLeft
+            : null,
+      };
+      setCameraUsage(nextUsage);
+      if (nextUsage.shotsLeft !== null && nextUsage.shotsLeft <= 0) {
+        stopCameraCapture();
+      }
+      setSettings((current) => ({
+        ...current,
+        cameraMaxUploadMb:
+          typeof payload.settings?.cameraMaxUploadMb === "number"
+            ? payload.settings.cameraMaxUploadMb
+            : current.cameraMaxUploadMb,
+        cameraShotLimitPerInvite:
+          typeof payload.settings?.cameraShotLimitPerInvite === "number"
+            ? payload.settings.cameraShotLimitPerInvite
+            : current.cameraShotLimitPerInvite,
+      }));
+    } catch {
+      setCameraFeedback("Unable to load camera gallery right now.");
+    } finally {
+      setCameraGalleryLoading(false);
+    }
+  }
+
+  async function getImageDimensions(file: File) {
+    return new Promise<{ width: number; height: number }>((resolve) => {
+      const url = URL.createObjectURL(file);
+      const image = new window.Image();
+
+      image.onload = () => {
+        const width = Number.isFinite(image.naturalWidth) ? image.naturalWidth : 0;
+        const height = Number.isFinite(image.naturalHeight) ? image.naturalHeight : 0;
+        URL.revokeObjectURL(url);
+        resolve({ width, height });
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve({ width: 0, height: 0 });
+      };
+
+      image.src = url;
+    });
+  }
+
+  async function onUploadCameraPhoto(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedGuest) return;
+    if (!cameraCanCaptureMoreShots) {
+      setCameraFeedback("Shot limit reached for this invitation.");
+      return;
+    }
+    if (!cameraSelectedFile) {
+      setCameraFeedback("Please select a photo first.");
+      return;
+    }
+
+    setCameraUploading(true);
+    setCameraFeedback("");
+
+    try {
+      const dimensions = await getImageDimensions(cameraSelectedFile);
+      const formData = new FormData();
+      formData.set("inviteCode", inviteCode);
+      formData.set("inviteToken", inviteToken);
+      formData.set("uploaderName", cameraUploaderName.trim() || selectedGuest.fullName);
+      formData.set("width", String(dimensions.width));
+      formData.set("height", String(dimensions.height));
+      formData.set("file", cameraSelectedFile, cameraSelectedFile.name);
+
+      const response = await fetch("/api/camera/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        const details = payload.details ? ` (${payload.details})` : "";
+        const message = `${payload.error ?? "Unable to upload photo."}${details}`;
+        if (payload.usage) {
+          const nextUsage: CameraUsage = {
+            shotsUsed:
+              typeof payload.usage.shotsUsed === "number" ? payload.usage.shotsUsed : 0,
+            shotsLimit:
+              typeof payload.usage.shotsLimit === "number"
+                ? payload.usage.shotsLimit
+                : cameraUsage.shotsLimit,
+            shotsLeft:
+              typeof payload.usage.shotsLeft === "number" || payload.usage.shotsLeft === null
+                ? payload.usage.shotsLeft
+                : null,
+          };
+          setCameraUsage(nextUsage);
+          if (nextUsage.shotsLeft !== null && nextUsage.shotsLeft <= 0) {
+            stopCameraCapture();
+          }
+        }
+        setCameraFeedback(message);
+        toast.error("Upload failed", { description: message });
+        return;
+      }
+
+      const statusMessage =
+        payload.photo?.status === "pending"
+          ? "Uploaded. Photo is waiting for approval."
+          : "Photo uploaded successfully.";
+      setCameraFeedback(statusMessage);
+      toast.success("Camera upload complete", { description: statusMessage });
+      setCameraSelectedFile(null);
+      if (payload.usage) {
+        const nextUsage: CameraUsage = {
+          shotsUsed:
+            typeof payload.usage.shotsUsed === "number" ? payload.usage.shotsUsed : 0,
+          shotsLimit:
+            typeof payload.usage.shotsLimit === "number"
+              ? payload.usage.shotsLimit
+              : cameraUsage.shotsLimit,
+          shotsLeft:
+            typeof payload.usage.shotsLeft === "number" || payload.usage.shotsLeft === null
+              ? payload.usage.shotsLeft
+              : null,
+        };
+        setCameraUsage(nextUsage);
+      }
+      stopCameraCapture();
+      await loadCameraGallery(inviteCode, inviteToken);
+    } catch {
+      const message = "Network error uploading photo.";
+      setCameraFeedback(message);
+      toast.error("Network error", { description: message });
+    } finally {
+      setCameraUploading(false);
+    }
+  }
 
   useEffect(() => {
-    if (accessCheckedRef.current) return;
-    accessCheckedRef.current = true;
-
     const params = new URLSearchParams(window.location.search);
     const invite = (params.get("invite") ?? "").trim();
     const token = (params.get("token") ?? "").trim();
@@ -472,7 +837,9 @@ export default function Home() {
     });
 
     return () => window.cancelAnimationFrame(rafId);
-  }, [loadEntourage, loadPublicSettings, validateAccess]);
+    // We only bootstrap access checks once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -1338,6 +1705,186 @@ export default function Home() {
         </div>
       </section>
 
+      {selectedGuest && settings.cameraEnabled ? (
+        <section
+          id="guest-camera"
+          data-scroll-animate="up"
+          className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6"
+        >
+          <SectionHeading
+            title="Guest Camera"
+            subtitle="Snap or upload your moments. Your own uploads appear here right away."
+          />
+
+          <div className="mt-6 rounded-2xl border border-[var(--sand)] bg-[var(--cream)] p-4 sm:p-5">
+                        <form onSubmit={onUploadCameraPhoto} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm text-[var(--ink-soft)] sm:col-span-2">
+                <span>Your Name</span>
+                <input
+                  className="rounded-lg border border-[var(--sand)] bg-[var(--surface-2)] px-3 py-2 text-[var(--ink-deep)]"
+                  value={cameraUploaderName}
+                  onChange={(event) => setCameraUploaderName(event.target.value)}
+                  placeholder={selectedGuest.fullName}
+                  maxLength={120}
+                />
+              </label>
+
+              <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-[var(--surface-2)] px-3 py-1 text-[11px] uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                  Shots Used: {cameraUsage.shotsUsed}
+                </span>
+                <span className="rounded-full bg-[var(--surface-2)] px-3 py-1 text-[11px] uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                  {cameraHasShotLimit
+                    ? `Shots Left: ${cameraUsage.shotsLeft ?? 0}`
+                    : "Shots Left: Unlimited"}
+                </span>
+              </div>
+
+              <div className="sm:col-span-2 rounded-xl border border-[var(--sand)] bg-[var(--surface-2)] p-3">
+                <p className="text-sm font-medium text-[var(--ink-deep)]">Take Photo</p>
+                <p className="mt-1 text-xs text-[var(--ink-soft)]">
+                  Use camera access for live capture, or upload from gallery below.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {!cameraCaptureActive ? (
+                    <button
+                      type="button"
+                      onClick={() => void startCameraCapture()}
+                      className="rounded-full border border-[var(--gold)] bg-[var(--ink-deep)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--cream)] disabled:opacity-50"
+                      disabled={cameraUploading || !cameraCanCaptureMoreShots}
+                    >
+                      Open Camera
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void captureCameraFrame()}
+                        className="rounded-full border border-[var(--gold)] bg-[var(--ink-deep)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--cream)] disabled:opacity-50"
+                        disabled={cameraUploading || !cameraCanCaptureMoreShots}
+                      >
+                        Capture Shot
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopCameraCapture}
+                        className="rounded-full border border-[var(--sand)] bg-[var(--cream)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink-soft)] disabled:opacity-50"
+                        disabled={cameraUploading}
+                      >
+                        Close Camera
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {cameraCaptureActive ? (
+                  <video
+                    ref={cameraVideoRef}
+                    className="mt-3 h-56 w-full rounded-xl border border-[var(--sand)] bg-black object-cover sm:h-72"
+                    autoPlay
+                    muted
+                    playsInline
+                  />
+                ) : null}
+                <canvas ref={cameraCanvasRef} className="hidden" />
+                {cameraCaptureError ? (
+                  <p className="mt-2 text-xs text-[var(--danger)]">{cameraCaptureError}</p>
+                ) : null}
+              </div>
+
+              <label className="flex flex-col gap-1 text-sm text-[var(--ink-soft)] sm:col-span-2">
+                <span>Upload Photo</span>
+                <input
+                  className="rounded-lg border border-[var(--sand)] bg-[var(--surface-2)] px-3 py-2 text-[var(--ink-deep)]"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(event) => setCameraSelectedFile(event.target.files?.[0] ?? null)}
+                />
+              </label>
+
+              {cameraPreviewUrl ? (
+                <div className="sm:col-span-2">
+                  <p className="mb-2 text-xs uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+                    Preview
+                  </p>
+                  <img
+                    src={cameraPreviewUrl}
+                    alt="Selected camera upload preview"
+                    className="h-56 w-full rounded-xl border border-[var(--sand)] object-cover sm:h-72"
+                  />
+                </div>
+              ) : null}
+
+              <div className="sm:col-span-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <button
+                  type="submit"
+                  className="rounded-full border border-[var(--gold)] bg-[var(--ink-deep)] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--cream)] transition hover:opacity-90 disabled:opacity-50"
+                  disabled={cameraUploading || !cameraSelectedFile || !cameraCanCaptureMoreShots}
+                >
+                  {cameraUploading ? "Uploading..." : "Upload To Guest Camera"}
+                </button>
+                <p className="text-xs text-[var(--ink-soft)]">
+                  Max upload size:{" "}
+                  {settings.cameraMaxUploadMb > 0
+                    ? `${settings.cameraMaxUploadMb} MB`
+                    : "No app-level limit (platform limit still applies)"}{" "}
+                  - {settings.cameraRequireApproval ? "Approval required" : "Auto publish"}
+                </p>
+              </div>
+            </form>
+            {cameraFeedback ? (
+              <p className="mt-3 rounded-lg border border-[var(--sand)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--ink-soft)]">
+                {cameraFeedback}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="mt-6">
+            <p className="text-xs uppercase tracking-[0.16em] text-[var(--ink-soft)]">Guest Camera Feed</p>
+            {cameraGalleryLoading ? (
+              <p className="mt-3 text-sm text-[var(--ink-soft)]">Loading camera photos...</p>
+            ) : cameraGalleryItems.length === 0 ? (
+              <div className="mt-3 rounded-xl border border-dashed border-[var(--sand)] bg-[var(--cream)] p-4 text-sm text-[var(--ink-soft)]">
+                No camera photos yet. Be the first to share a moment.
+              </div>
+            ) : (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {cameraGalleryItems.map((item) => (
+                  <article
+                    key={item.id}
+                    className="overflow-hidden rounded-2xl border border-[var(--sand)] bg-[var(--cream)]"
+                  >
+                    <img
+                      src={item.imageUrl}
+                      alt={`Guest camera photo by ${item.uploaderName}`}
+                      className="h-48 w-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="space-y-1 px-3 py-3">
+                      <p className="text-sm font-semibold text-[var(--ink-deep)]">{item.uploaderName}</p>
+                      <p className="text-xs text-[var(--ink-soft)]">
+                        {formatTimestamp(item.createdAt)}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-[var(--surface-2)] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                          {item.status}
+                        </span>
+                        {item.isOwnPhoto ? (
+                          <span className="rounded-full bg-[var(--info-soft)] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[var(--info-text)]">
+                            your upload
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+
       {isClientMounted && activeFeaturedPhoto
         ? createPortal(
             <div
@@ -1884,6 +2431,13 @@ function formatWeddingTime(value: string) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatTimestamp(value: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
 function getCountdownParts(

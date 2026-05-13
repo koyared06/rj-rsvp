@@ -10,12 +10,39 @@ const SETTINGS_HEADERS = ["key", "value"];
 const WEDDING_DATE_KEY = "weddingDate";
 const WEDDING_TIME_KEY = "weddingTime";
 const SHOW_COUNTDOWN_KEY = "showCountdown";
+const CAMERA_ENABLED_KEY = "cameraEnabled";
+const CAMERA_REQUIRE_APPROVAL_KEY = "cameraRequireApproval";
+const CAMERA_GALLERY_UNLOCK_DATE_KEY = "cameraGalleryUnlockDate";
+const CAMERA_GALLERY_UNLOCK_TIME_KEY = "cameraGalleryUnlockTime";
+const CAMERA_MAX_UPLOAD_MB_KEY = "cameraMaxUploadMb";
+const CAMERA_SHOT_LIMIT_PER_INVITE_KEY = "cameraShotLimitPerInvite";
+const CAMERA_LANDING_ENABLED_KEY = "cameraLandingEnabled";
+const CAMERA_EVENT_TITLE_KEY = "cameraEventTitle";
+const CAMERA_EVENT_SUBTITLE_KEY = "cameraEventSubtitle";
+const CAMERA_COVER_IMAGE_URL_KEY = "cameraCoverImageUrl";
+const CAMERA_START_BUTTON_LABEL_KEY = "cameraStartButtonLabel";
 const DEFAULT_WEDDING_TIME = "16:00";
+const DEFAULT_CAMERA_MAX_UPLOAD_MB = 3;
+const DEFAULT_CAMERA_SHOT_LIMIT = 27;
+const DEFAULT_CAMERA_EVENT_TITLE = "Guest Camera";
+const DEFAULT_CAMERA_EVENT_SUBTITLE = "Capture moments from our celebration.";
+const DEFAULT_CAMERA_START_BUTTON_LABEL = "Start Camera";
 
 export type WeddingSettings = {
   weddingDate: string;
   weddingTime: string;
   showCountdown: boolean;
+  cameraEnabled: boolean;
+  cameraRequireApproval: boolean;
+  cameraGalleryUnlockDate: string;
+  cameraGalleryUnlockTime: string;
+  cameraMaxUploadMb: number;
+  cameraShotLimitPerInvite: number;
+  cameraLandingEnabled: boolean;
+  cameraEventTitle: string;
+  cameraEventSubtitle: string;
+  cameraCoverImageUrl: string;
+  cameraStartButtonLabel: string;
 };
 
 function isMissingSheetError(error: unknown) {
@@ -40,7 +67,44 @@ export async function readWeddingSettings(): Promise<WeddingSettings> {
     return {
       weddingDate: normalized.get(WEDDING_DATE_KEY) ?? "",
       weddingTime: normalizeWeddingTime(normalized.get(WEDDING_TIME_KEY) ?? ""),
-      showCountdown: parseShowCountdown(normalized.get(SHOW_COUNTDOWN_KEY) ?? ""),
+      showCountdown: parseBooleanSetting(normalized.get(SHOW_COUNTDOWN_KEY) ?? "", true),
+      cameraEnabled: parseBooleanSetting(normalized.get(CAMERA_ENABLED_KEY) ?? "", false),
+      cameraRequireApproval: parseBooleanSetting(
+        normalized.get(CAMERA_REQUIRE_APPROVAL_KEY) ?? "",
+        false,
+      ),
+      cameraGalleryUnlockDate: normalizeUnlockDate(
+        normalized.get(CAMERA_GALLERY_UNLOCK_DATE_KEY) ?? "",
+      ),
+      cameraGalleryUnlockTime: normalizeUnlockTime(
+        normalized.get(CAMERA_GALLERY_UNLOCK_TIME_KEY) ?? "",
+      ),
+      cameraMaxUploadMb: parseCameraMaxUploadMb(
+        normalized.get(CAMERA_MAX_UPLOAD_MB_KEY) ?? "",
+      ),
+      cameraShotLimitPerInvite: parseCameraShotLimitPerInvite(
+        normalized.get(CAMERA_SHOT_LIMIT_PER_INVITE_KEY) ?? "",
+      ),
+      cameraLandingEnabled: parseBooleanSetting(
+        normalized.get(CAMERA_LANDING_ENABLED_KEY) ?? "",
+        true,
+      ),
+      cameraEventTitle: parseCameraDisplayText(
+        normalized.get(CAMERA_EVENT_TITLE_KEY) ?? "",
+        DEFAULT_CAMERA_EVENT_TITLE,
+        120,
+      ),
+      cameraEventSubtitle: parseCameraDisplayText(
+        normalized.get(CAMERA_EVENT_SUBTITLE_KEY) ?? "",
+        DEFAULT_CAMERA_EVENT_SUBTITLE,
+        240,
+      ),
+      cameraCoverImageUrl: parseCameraUrl(normalized.get(CAMERA_COVER_IMAGE_URL_KEY) ?? ""),
+      cameraStartButtonLabel: parseCameraDisplayText(
+        normalized.get(CAMERA_START_BUTTON_LABEL_KEY) ?? "",
+        DEFAULT_CAMERA_START_BUTTON_LABEL,
+        40,
+      ),
     };
   } catch (error) {
     if (isMissingSheetError(error)) {
@@ -48,6 +112,17 @@ export async function readWeddingSettings(): Promise<WeddingSettings> {
         weddingDate: "",
         weddingTime: DEFAULT_WEDDING_TIME,
         showCountdown: true,
+        cameraEnabled: false,
+        cameraRequireApproval: false,
+        cameraGalleryUnlockDate: "",
+        cameraGalleryUnlockTime: "",
+        cameraMaxUploadMb: DEFAULT_CAMERA_MAX_UPLOAD_MB,
+        cameraShotLimitPerInvite: DEFAULT_CAMERA_SHOT_LIMIT,
+        cameraLandingEnabled: true,
+        cameraEventTitle: DEFAULT_CAMERA_EVENT_TITLE,
+        cameraEventSubtitle: DEFAULT_CAMERA_EVENT_SUBTITLE,
+        cameraCoverImageUrl: "",
+        cameraStartButtonLabel: DEFAULT_CAMERA_START_BUTTON_LABEL,
       };
     }
     throw error;
@@ -65,6 +140,53 @@ export async function saveWeddingSettings(settings: WeddingSettings) {
     [WEDDING_DATE_KEY, settings.weddingDate],
     [WEDDING_TIME_KEY, normalizeWeddingTime(settings.weddingTime)],
     [SHOW_COUNTDOWN_KEY, settings.showCountdown ? "true" : "false"],
+    [CAMERA_ENABLED_KEY, settings.cameraEnabled ? "true" : "false"],
+    [
+      CAMERA_REQUIRE_APPROVAL_KEY,
+      settings.cameraRequireApproval ? "true" : "false",
+    ],
+    [
+      CAMERA_GALLERY_UNLOCK_DATE_KEY,
+      normalizeUnlockDate(settings.cameraGalleryUnlockDate),
+    ],
+    [
+      CAMERA_GALLERY_UNLOCK_TIME_KEY,
+      normalizeUnlockTime(settings.cameraGalleryUnlockTime),
+    ],
+    [
+      CAMERA_MAX_UPLOAD_MB_KEY,
+      String(parseCameraMaxUploadMb(String(settings.cameraMaxUploadMb))),
+    ],
+    [
+      CAMERA_SHOT_LIMIT_PER_INVITE_KEY,
+      String(parseCameraShotLimitPerInvite(String(settings.cameraShotLimitPerInvite))),
+    ],
+    [CAMERA_LANDING_ENABLED_KEY, settings.cameraLandingEnabled ? "true" : "false"],
+    [
+      CAMERA_EVENT_TITLE_KEY,
+      parseCameraDisplayText(
+        settings.cameraEventTitle,
+        DEFAULT_CAMERA_EVENT_TITLE,
+        120,
+      ),
+    ],
+    [
+      CAMERA_EVENT_SUBTITLE_KEY,
+      parseCameraDisplayText(
+        settings.cameraEventSubtitle,
+        DEFAULT_CAMERA_EVENT_SUBTITLE,
+        240,
+      ),
+    ],
+    [CAMERA_COVER_IMAGE_URL_KEY, parseCameraUrl(settings.cameraCoverImageUrl)],
+    [
+      CAMERA_START_BUTTON_LABEL_KEY,
+      parseCameraDisplayText(
+        settings.cameraStartButtonLabel,
+        DEFAULT_CAMERA_START_BUTTON_LABEL,
+        40,
+      ),
+    ],
   ];
 
   for (const [key, value] of entries) {
@@ -88,10 +210,67 @@ function normalizeWeddingTime(value: string): string {
   return DEFAULT_WEDDING_TIME;
 }
 
-function parseShowCountdown(value: string): boolean {
-  if (!value) return true;
+function normalizeUnlockDate(value: string): string {
+  if (!value) return "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+  return parseIsoDate(value) ? value : "";
+}
+
+function normalizeUnlockTime(value: string): string {
+  if (!value) return "";
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+    return value;
+  }
+  return "";
+}
+
+function parseBooleanSetting(value: string, fallback: boolean): boolean {
+  if (!value) return fallback;
   const normalized = value.trim().toLowerCase();
   return !["false", "0", "no", "off"].includes(normalized);
+}
+
+function parseCameraMaxUploadMb(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_CAMERA_MAX_UPLOAD_MB;
+  }
+  const normalized = Math.round(parsed);
+  return Math.min(100, Math.max(0, normalized));
+}
+
+function parseCameraShotLimitPerInvite(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return DEFAULT_CAMERA_SHOT_LIMIT;
+  }
+  const normalized = Math.round(parsed);
+  return Math.min(500, Math.max(0, normalized));
+}
+
+function parseCameraDisplayText(
+  value: string,
+  fallback: string,
+  maxLength: number,
+): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return fallback;
+  return trimmed.slice(0, maxLength);
+}
+
+function parseCameraUrl(value: string): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "";
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+    return "";
+  } catch {
+    return "";
+  }
 }
 
 function parseIsoDate(isoDate: string) {

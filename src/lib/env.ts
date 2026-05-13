@@ -38,3 +38,21 @@ export function getEntourageCategoriesSheetName() {
 export function getEntourageMembersSheetName() {
   return process.env.GOOGLE_SHEETS_ENTOURAGE_MEMBERS_TAB ?? "EntourageMembers";
 }
+
+export function getCameraPhotosSheetName() {
+  return process.env.GOOGLE_SHEETS_CAMERA_PHOTOS_TAB ?? "CameraPhotos";
+}
+
+export function getDriveCameraEnv() {
+  return {
+    folderId: (process.env.GOOGLE_DRIVE_CAMERA_FOLDER_ID ?? "").trim(),
+    sharedDriveId: (process.env.GOOGLE_DRIVE_SHARED_DRIVE_ID ?? "").trim(),
+    originalsFolderName:
+      (process.env.GOOGLE_DRIVE_CAMERA_ORIGINALS_FOLDER_NAME ?? "").trim() || "originals",
+    previewsFolderName:
+      (process.env.GOOGLE_DRIVE_CAMERA_PREVIEWS_FOLDER_NAME ?? "").trim() || "previews",
+    watermarkLine1: (process.env.CAMERA_WATERMARK_LINE_1 ?? "").trim() || "Red & Jess",
+    watermarkLine2:
+      (process.env.CAMERA_WATERMARK_LINE_2 ?? "").trim() || "#soaferRED-ynasiJESS",
+  };
+}
