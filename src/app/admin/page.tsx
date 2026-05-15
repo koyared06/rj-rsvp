@@ -456,38 +456,10 @@ export default function AdminPage() {
     adminToken: string,
     options?: { silent?: boolean },
   ) => {
-    const silent = options?.silent ?? false;
-    if (!silent) {
-      setCameraLoading(true);
-    }
-
-    try {
-      const response = await fetch("/api/camera/list", {
-        headers: { "x-admin-token": adminToken },
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        if (!silent) {
-          toast.error("Camera load failed", {
-            description: payload.error ?? "Unable to load camera uploads.",
-          });
-        }
-        return;
-      }
-
-      setCameraPhotos(Array.isArray(payload.items) ? payload.items : []);
-    } catch {
-      if (!silent) {
-        toast.error("Network error", {
-          description: "Unable to load camera uploads right now.",
-        });
-      }
-    } finally {
-      if (!silent) {
-        setCameraLoading(false);
-      }
-    }
+    void adminToken;
+    void options;
+    setCameraPhotos([]);
+    setCameraLoading(false);
   }, []);
 
   const loadDashboard = useCallback(async (
@@ -1598,14 +1570,6 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
           <p className="mt-2 text-sm text-[var(--ink-soft)]">
             Google Sheets-backed guest management for Red & Jess RSVP.
           </p>
-          <div className="mt-2">
-            <Link
-              href="/admin/camera"
-              className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs text-[var(--ink-soft)] hover:bg-[var(--surface-2)]"
-            >
-              Open Dedicated Camera Studio
-            </Link>
-          </div>
           <p className="mt-1 text-xs text-[color-mix(in_srgb,var(--ink-soft)_84%,var(--foreground)_16%)]">Dashboard auto-refreshes every 10 seconds.</p>
         </div>
         <ThemeToggle />
@@ -1717,18 +1681,6 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 />
                 <span>Show countdown on RSVP page</span>
               </label>
-              <div className="rounded-lg border border-[var(--info-border)] bg-[var(--surface)] px-3 py-3 text-sm text-[var(--info-text)] md:col-span-2 xl:col-span-3">
-                <p className="font-medium">Camera settings moved to dedicated page.</p>
-                <p className="mt-1 text-xs">
-                  Manage QR camera access, shot limits, and moderation in Camera Studio.
-                </p>
-                <Link
-                  href="/admin/camera"
-                  className="mt-2 inline-flex rounded-full border border-[var(--info-border)] bg-[var(--surface-2)] px-3 py-1 text-xs hover:bg-[var(--surface)]"
-                >
-                  Open Camera Studio
-                </Link>
-              </div>
               <button
                 type="submit"
 	                className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-[var(--background)] disabled:opacity-50 md:col-span-2 xl:col-span-3"
@@ -1737,9 +1689,6 @@ async function onSaveWeddingDate(event: FormEvent<HTMLFormElement>) {
                 {settingsSaving ? "Saving..." : "Save Countdown Settings"}
               </button>
             </form>
-            <p className="mt-2 text-xs text-[var(--info-text)]">
-              Camera controls are now available in the dedicated Camera Studio page.
-            </p>
           </section>
 
           <section className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
