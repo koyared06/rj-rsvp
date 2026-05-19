@@ -537,10 +537,7 @@ export default function Home() {
           typeof payload.settings?.showCountdown === "boolean"
             ? payload.settings.showCountdown
             : true,
-        cameraEnabled:
-          typeof payload.settings?.cameraEnabled === "boolean"
-            ? payload.settings.cameraEnabled
-            : false,
+        cameraEnabled: false,
         cameraRequireApproval:
           typeof payload.settings?.cameraRequireApproval === "boolean"
             ? payload.settings.cameraRequireApproval
@@ -573,16 +570,12 @@ export default function Home() {
       setGuestCountInput(String(Math.min(payload.guest.maxGuests, MIN_ATTENDING_GUEST_COUNT)));
       setCompanionNameByIndex({});
       setSubmitAttempted(false);
-      if (payload.settings?.cameraEnabled) {
-        void loadCameraGallery(invite, token);
-      } else {
-        setCameraGalleryItems([]);
-        setCameraUsage({
-          shotsUsed: 0,
-          shotsLimit: inviteShotLimit,
-          shotsLeft: inviteShotLimit > 0 ? inviteShotLimit : null,
-        });
-      }
+      setCameraGalleryItems([]);
+      setCameraUsage({
+        shotsUsed: 0,
+        shotsLimit: inviteShotLimit,
+        shotsLeft: inviteShotLimit > 0 ? inviteShotLimit : null,
+      });
       toast.success("Invitation verified", {
         description: `Welcome, ${payload.guest.fullName}.`,
       });
@@ -614,10 +607,7 @@ export default function Home() {
           typeof payload.settings?.showCountdown === "boolean"
             ? payload.settings.showCountdown
             : true,
-        cameraEnabled:
-          typeof payload.settings?.cameraEnabled === "boolean"
-            ? payload.settings.cameraEnabled
-            : false,
+        cameraEnabled: false,
         cameraRequireApproval:
           typeof payload.settings?.cameraRequireApproval === "boolean"
             ? payload.settings.cameraRequireApproval
